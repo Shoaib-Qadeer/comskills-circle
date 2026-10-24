@@ -12,6 +12,8 @@ import { api, ClientError, daysLeft, firstName, timeAgo } from "@/lib/client";
 import { CountUp } from "./bits";
 import { Avatar, Button, ErrorText, Input, Label, PageHeader, Panel, Skeleton, Textarea, cx } from "./ui";
 import { DraftEditor, emptyDraft } from "./DraftEditor";
+import { ShareButtons, absoluteUrl } from "./ShareButtons";
+import { opportunityShareText } from "@/lib/share-text";
 
 type ExtractRes =
   | { kind: "duplicate"; opportunityId: string; postedByName: string | null; createdAt: string }
@@ -20,7 +22,7 @@ type ExtractRes =
 
 type Stage = "input" | "reading" | "paste" | "duplicate" | "review" | "done";
 
-const READING_LINES = ["Reading the page…", "Finding the deadline…", "Spotting the fields…", "Checking the language…"];
+const READING_LINES = ["Reading the page…", "Finding the deadline…", "Spotting the fields…", "Checking funding and eligibility…"];
 
 const looksLikeUrl = (s: string) => /^https?:\/\/\S+\.\S+/.test(s.trim());
 
@@ -192,7 +194,7 @@ export function PostFlow() {
                       <p className="mb-3 flex items-start gap-2 text-sm">
                         <ClipboardPaste className="mt-0.5 size-4 shrink-0 text-brass" />
                         <span>
-                          {pasteReason} Copy the text of the posting from the page and paste it here — Comskills Circle will read it the same way.
+                          {pasteReason} Copy the text of the posting from the page and paste it here. Comskills Circle reads it the same way.
                         </span>
                       </p>
                       <Textarea autoFocus rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="Paste the posting text…" maxLength={30000} />
@@ -242,7 +244,7 @@ export function PostFlow() {
                 <p className="flex items-center gap-2 text-sm text-dim">
                   {llm ? (
                     <>
-                      <Sparkles className="size-4 text-brass" /> Check the details — everything is editable.
+                      <Sparkles className="size-4 text-brass" /> Check the details. Everything is editable.
                     </>
                   ) : (
                     "Automatic reading isn't available right now. Fill in what you know."
@@ -259,7 +261,7 @@ export function PostFlow() {
               <DraftEditor d={draft} onChange={setDraft} />
             </Panel>
 
-            <TagClassmates selected={tagged} onChange={setTagged} note={note} onNote={setNote} />
+            <TagMembers selected={tagged} onChange={setTagged} note={note} onNote={setNote} />
 
             <div className="sticky bottom-20 z-10 mt-6 flex flex-wrap items-center justify-end gap-3 rounded-full border border-line-strong bg-raised/95 py-2 pl-5 pr-2 shadow-2xl backdrop-blur lg:bottom-6">
               <span className="mr-auto text-sm text-dim">{error ? (
@@ -276,45 +278,54 @@ export function PostFlow() {
           </motion.div>
         )}
 
-        {stage === "done" && result && draft && <Done key="done" title={draft.title} result={result} onAnother={reset} />}
+        {stage === "done" && result && draft && <Done key="done" draft={draft} result={result} onAnother={reset} />}
       </AnimatePresence>
     </div>
   );
 }
 
-function TagClassmates({ selected, onChange, note, onNote }: { selected: string[]; onChange: (v: string[]) => void; note: string; onNote: (v: string) => void }) {
+function TagMembers({ selected, onChange, note, onNote }: { selected: string[]; onChange: (v: string[]) => void; note: string; onNote: (v: string) => void }) {
   const { data } = useSWR<{ items: MemberCardDTO[] }>("/api/members");
   const [q, setQ] = useState("");
   const people = useMemo(() => (data?.items ?? []).filter((p) => !p.isMe), [data]);
-  const shown = people.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.fieldOfStudy.toLowerCase().includes(q.toLowerCase()));
+  const chosen = people.filter((p) => selected.includes(p.id));
+  const needle = q.trim().toLowerCase();
+  // With a few hundred members, only show people once you start typing
+  const results = needle
+    ? people.filter((p) => !selected.includes(p.id) && (p.name.toLowerCase().includes(needle) || p.fieldOfStudy.toLowerCase().includes(needle))).slice(0, 8)
+    : [];
+  const chip = (p: MemberCardDTO, on: boolean) => (
+    <motion.button
+      key={p.id}
+      type="button"
+      whileTap={{ scale: 0.95 }}
+      onClick={() => {
+        onChange(on ? selected.filter((x) => x !== p.id) : selected.length < 20 ? [...selected, p.id] : selected);
+        if (!on) setQ("");
+      }}
+      aria-pressed={on}
+      className={cx("flex h-11 max-w-full items-center gap-2 rounded-full border pl-1 pr-3 text-sm transition-colors sm:h-10", on ? "border-brass bg-brass/10" : "border-line-strong hover:bg-raised-2")}
+    >
+      <Avatar name={p.name} src={p.photoUrl} size={30} ring={on ? "brass" : undefined} />
+      <span className="truncate">{on ? firstName(p.name) : p.name}</span>
+      {on ? <Check className="size-3.5 shrink-0 text-brass" /> : <span className="hidden truncate text-xs text-faint sm:inline">{p.fieldOfStudy}</span>}
+    </motion.button>
+  );
   return (
     <Panel className="mt-6 p-5 sm:p-7">
       <h2 className="font-display text-lg font-semibold">Thought of someone?</h2>
-      <p className="mt-1 text-sm text-dim">Optional. They’ll see it first, with your note. Comskills Circle still finds everyone else it fits.</p>
-      {people.length > 6 && <Input className="mt-4" placeholder="Search members…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />}
-      <div className="mt-4 flex flex-wrap gap-2">
+      <p className="mt-1 text-sm text-dim">Optional. Tag a member and they&rsquo;ll see it first, with your note. Comskills Circle still finds everyone else it fits.</p>
+      {chosen.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{chosen.map((p) => chip(p, true))}</div>}
+      <Input className="mt-4" placeholder="Type a name or field of study…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members to tag" type="search" />
+      <div className="mt-3 flex flex-wrap gap-2">
         {!data ? (
           <Skeleton className="h-10 w-full" />
         ) : people.length === 0 ? (
           <p className="text-sm text-faint">No other members yet.</p>
+        ) : needle && results.length === 0 ? (
+          <p className="text-sm text-faint">No one matches &ldquo;{q.trim()}&rdquo;.</p>
         ) : (
-          shown.map((p) => {
-            const on = selected.includes(p.id);
-            return (
-              <motion.button
-                key={p.id}
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onChange(on ? selected.filter((x) => x !== p.id) : [...selected, p.id])}
-                aria-pressed={on}
-                className={cx("flex h-10 items-center gap-2 rounded-full border pl-1 pr-3 text-sm transition-colors", on ? "border-brass bg-brass/10" : "border-line-strong hover:bg-raised-2")}
-              >
-                <Avatar name={p.name} src={p.photoUrl} size={30} ring={on ? "brass" : undefined} />
-                {firstName(p.name)}
-                {on && <Check className="size-3.5 text-brass" />}
-              </motion.button>
-            );
-          })
+          results.map((p) => chip(p, false))
         )}
       </div>
       <AnimatePresence>
@@ -323,7 +334,7 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
             <Label htmlFor="note" hint={`${note.length}/200`} className="mt-5">
               A note for them
             </Label>
-            <Input id="note" maxLength={200} value={note} onChange={(e) => onNote(e.target.value)} placeholder="This sounds like your thesis idea!" />
+            <Input id="note" maxLength={200} value={note} onChange={(e) => onNote(e.target.value)} placeholder="This fits your plan for a master's in Germany!" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -331,7 +342,9 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
   );
 }
 
-function Done({ title, result, onAnother }: { title: string; result: { id: string; matchCount: number }; onAnother: () => void }) {
+function Done({ draft, result, onAnother }: { draft: ExtractedDraft; result: { id: string; matchCount: number }; onAnother: () => void }) {
+  const title = draft.title;
+  const shareUrl = absoluteUrl(`/opportunities?open=${result.id}`);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center py-10 text-center">
       {/* The posted card drops onto the community stack */}
@@ -359,10 +372,13 @@ function Done({ title, result, onAnother }: { title: string; result: { id: strin
             "It’s on the board for everyone to browse."
           )}
         </p>
-        <p className="mt-2 text-sm text-dim">{result.matchCount > 0 ? "They’ll see it in their matches. Comskills Circle never shows you who." : "No strong matches yet — new members will be matched as they join."}</p>
+        <p className="mt-2 text-sm text-dim">{result.matchCount > 0 ? "They’ll see it in their matches. Comskills Circle never shows you who." : "No strong matches yet. New members are matched as they join."}</p>
+        <div className="mt-6 flex justify-center">
+          <ShareButtons text={opportunityShareText(draft, shareUrl)} url={shareUrl} />
+        </div>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Button onClick={onAnother}>Share another</Button>
-          <Link href={`/opportunities?open=${result.id}`} className="inline-flex h-10 items-center rounded-full border border-line-strong px-4 text-sm font-medium hover:bg-raised-2">
+          <Link href={`/opportunities?open=${result.id}`} className="inline-flex h-11 items-center rounded-full border border-line-strong px-4 text-sm font-medium hover:bg-raised-2">
             View it
           </Link>
         </div>

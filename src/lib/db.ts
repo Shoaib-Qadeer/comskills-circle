@@ -67,6 +67,9 @@ let indexesEnsured = false;
 export async function ensureIndexes() {
   if (indexesEnsured) return;
   const c = await collections();
+  // Compass kept one match per (userId, opportunityId). Matches are now keyed by kind + targetId,
+  // so that old unique index (present if this database started as a Compass one) must go.
+  await c.matches.dropIndex("userId_1_opportunityId_1").catch(() => null);
   const results = await Promise.allSettled([
     c.users.createIndex({ email: 1 }, { unique: true }),
     c.opportunities.createIndex({ urlKey: 1 }, { unique: true, partialFilterExpression: { urlKey: { $type: "string" } } }),

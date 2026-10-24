@@ -1,4 +1,5 @@
 import { collections } from "./db";
+import { localDayKey } from "./time";
 import { generateJSON, LlmUnavailableError } from "./llm";
 import { extractionUser, systemPrompt } from "./prompts";
 import { getSettings } from "./settings";
@@ -38,12 +39,14 @@ function manualDraft(url: string, page: ParsedPage | null, pasted: string | null
     organization: (typeof org === "string" ? org : org?.name) || page?.siteName || null,
     location: null,
     remote: jp?.jobLocationType === "TELECOMMUTE" ? "remote" : null,
-    type: "internship",
+    type: jp ? "job" : "other",
+    country: null,
+    degreeLevel: [],
+    funding: null,
     deadline: isoFromAny(jp?.validThrough),
     startDate: null,
     durationMonths: null,
     paid: null,
-    frenchRequired: null,
     fields: [],
     tags: [],
     eligibility: null,
@@ -101,7 +104,7 @@ export async function extractOpportunity(input: { url?: string; pastedText?: str
         titleHint: page?.titleHint || "",
         jsonLd: page?.jsonLdSummary || "",
         text: text.slice(0, settings.ai.extractionChars),
-        today: new Date().toISOString().slice(0, 10),
+        today: localDayKey(),
       }),
       schema: llmExtractionSchema,
       maxOutputTokens: 1500,
@@ -113,11 +116,13 @@ export async function extractOpportunity(input: { url?: string; pastedText?: str
       location: out.location,
       remote: out.remote,
       type: out.type as OppType,
+      country: out.country,
+      degreeLevel: out.degreeLevel,
+      funding: out.funding,
       deadline: validIsoDate(out.deadline),
       startDate: validIsoDate(out.startDate),
       durationMonths: out.durationMonths,
       paid: out.paid,
-      frenchRequired: out.frenchRequired,
       fields: onlyValidFields(out.fields),
       tags: out.tags,
       eligibility: out.eligibility,

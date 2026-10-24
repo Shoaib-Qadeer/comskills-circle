@@ -36,26 +36,30 @@ describe("isPrivateIp (SSRF guard)", () => {
 });
 
 describe("warnings", () => {
-  const base = { deadline: null, durationMonths: 6, frenchRequired: false, paid: true, type: "internship" };
-  it("flags a 3-month internship", () => {
-    const w = computeWarnings({ ...base, deadline: "2026-12-01", durationMonths: 3 }, NOW);
-    expect(w.map((x) => x.label)).toContain("Duration: 3 months (M1 needs 6)");
-  });
-  it("accepts 5.5–6.5 months", () => {
-    const w = computeWarnings({ ...base, deadline: "2026-12-01", durationMonths: 5.5 }, NOW);
-    expect(w.find((x) => x.kind === "duration_mismatch")).toBeUndefined();
-  });
+  const base = { deadline: null, paid: true, funding: "full", type: "scholarship" };
   it("urgent under 3 days, soon under 14, nothing beyond", () => {
     expect(computeWarnings({ ...base, deadline: "2026-10-19" }, NOW)[0]).toEqual({ kind: "deadline_urgent", label: "⏳ Deadline in 2 days" });
     expect(computeWarnings({ ...base, deadline: "2026-10-26" }, NOW)[0].kind).toBe("deadline_soon");
     expect(computeWarnings({ ...base, deadline: "2026-12-26" }, NOW)).toEqual([]);
   });
-  it("flags French, unknowns and unpaid", () => {
-    const kinds = computeWarnings({ deadline: null, durationMonths: null, frenchRequired: true, paid: false, type: "internship" }, NOW).map((w) => w.kind);
-    expect(kinds).toEqual(["deadline_unknown", "french_required", "duration_unknown", "unpaid"]);
+  it("deadline today uses the Karachi day, not UTC", () => {
+    // 20:30 UTC on the 16th is already the 17th in Karachi (UTC+5)
+    const lateUtc = new Date("2026-10-16T20:30:00Z");
+    expect(computeWarnings({ ...base, deadline: "2026-10-17" }, lateUtc, "Asia/Karachi")[0].label).toBe("⏳ Deadline today");
+    expect(isExpired("2026-10-16", lateUtc, "Asia/Karachi")).toBe(true);
+    expect(isExpired("2026-10-16", lateUtc, "UTC")).toBe(false);
   });
-  it("does not apply duration rules to events", () => {
-    expect(computeWarnings({ ...base, deadline: "2026-12-01", durationMonths: null, type: "event" }, NOW)).toEqual([]);
+  it("funding not stated only for funded types", () => {
+    expect(computeWarnings({ ...base, deadline: "2026-12-01", funding: null }, NOW).map((w) => w.label)).toEqual(["Funding not stated"]);
+    expect(computeWarnings({ ...base, deadline: "2026-12-01", funding: null, type: "event" }, NOW)).toEqual([]);
+  });
+  it("unpaid only for internships and jobs", () => {
+    expect(computeWarnings({ deadline: null, paid: false, funding: null, type: "internship" }, NOW).map((w) => w.kind)).toEqual(["deadline_unknown", "unpaid"]);
+    expect(computeWarnings({ deadline: "2026-12-01", paid: false, funding: "full", type: "scholarship" }, NOW)).toEqual([]);
+  });
+  it("no French or duration rules any more", () => {
+    const kinds = computeWarnings({ deadline: "2026-12-01", paid: true, type: "internship" }, NOW).map((w) => w.kind);
+    expect(kinds).toEqual([]);
   });
   it("expiry is day-based", () => {
     expect(daysUntil("2026-10-17", NOW)).toBe(0);
@@ -101,9 +105,11 @@ describe("LLM output handling", () => {
   it("coerces bad values to null instead of failing", () => {
     const out = llmExtractionSchema.parse({
       title: "  Research intern  ", organization: "", remote: "sometimes", type: "gig", deadline: "next Friday",
-      durationMonths: "six", paid: "yes", frenchRequired: null, fields: ["ai-ml"], tags: ["NLP"], summary: "x",
+      durationMonths: "six", paid: "yes", fields: ["ai-ml"], tags: ["NLP"], summary: "x",
+      country: "  Germany ", degreeLevel: ["Master", "phd", "diploma"], funding: "lots",
     });
-    expect(out).toMatchObject({ title: "Research intern", organization: null, remote: null, type: "other", deadline: null, durationMonths: null, paid: null, tags: ["nlp"] });
+    expect(out).toMatchObject({ title: "Research intern", organization: null, remote: null, type: "other", deadline: null, durationMonths: null, paid: null, tags: ["nlp"], country: "Germany", degreeLevel: ["master", "phd"], funding: null });
+    expect(llmExtractionSchema.parse({ title: "X", type: "scholarship", funding: "full" })).toMatchObject({ type: "scholarship", funding: "full", degreeLevel: [] });
   });
 });
 

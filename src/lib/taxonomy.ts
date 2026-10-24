@@ -98,14 +98,42 @@ export const SUGGESTED_TOOLS = ["Python", "R", "Excel", "SPSS", "MATLAB", "Git",
 
 export const FIELD_OF_STUDY_EXAMPLES = ["BS Computer Science", "BS Biotechnology", "MPhil Bioinformatics", "BS Software Engineering", "MBBS", "BS Microbiology"];
 
-/* ---------------- Opportunity types (kept from Compass until the opportunities phase) ---------------- */
+/* ---------------- Opportunities ---------------- */
 
 export const OPPORTUNITY_TYPES = [
-  { value: "internship", label: "Internship" },
-  { value: "fellowship", label: "Fellowship" },
-  { value: "summer_school", label: "Summer school" },
-  { value: "competition", label: "Competition" },
-  { value: "event", label: "Event" },
-  { value: "job", label: "Job" },
-  { value: "other", label: "Other" },
+  { value: "scholarship", label: "Scholarship", emoji: "🎓" },
+  { value: "fellowship", label: "Fellowship", emoji: "🏅" },
+  { value: "internship", label: "Internship", emoji: "🧭" },
+  { value: "job", label: "Job", emoji: "💼" },
+  { value: "research", label: "Research position", emoji: "🔬" },
+  { value: "exchange", label: "Exchange", emoji: "✈️" },
+  { value: "summer_school", label: "Summer school", emoji: "☀️" },
+  { value: "competition", label: "Competition", emoji: "🏆" },
+  { value: "event", label: "Event", emoji: "📅" },
+  { value: "other", label: "Other", emoji: "✨" },
 ] as const;
+export const oppTypeLabel = (v: string) => OPPORTUNITY_TYPES.find((t) => t.value === v)?.label ?? "Other";
+export const oppTypeEmoji = (v: string) => OPPORTUNITY_TYPES.find((t) => t.value === v)?.emoji ?? "✨";
+
+export const DEGREE_LEVELS = [
+  { value: "bachelor", label: "Bachelor's" },
+  { value: "master", label: "Master's" },
+  { value: "phd", label: "PhD" },
+  { value: "postdoc", label: "Postdoc" },
+  { value: "any", label: "Any level" },
+] as const;
+export const degreeLabel = (v: string) => DEGREE_LEVELS.find((d) => d.value === v)?.label ?? v;
+
+export const FUNDING = [
+  { value: "full", label: "Fully funded" },
+  { value: "partial", label: "Partly funded" },
+  { value: "none", label: "Not funded" },
+] as const;
+export const fundingLabel = (v: string | null) => FUNDING.find((f) => f.value === v)?.label ?? "Funding not stated";
+
+/** Types where funding matters (shows "Funding not stated" when unknown). */
+export const FUNDED_TYPES = ["scholarship", "fellowship", "exchange", "summer_school", "research"];
+/** Types where "Unpaid" matters. */
+export const PAID_TYPES = ["internship", "job"];
+/** Types with a "Track this" button that adds a scholarship tracker entry. */
+export const TRACKABLE_TYPES = ["scholarship", "fellowship"];

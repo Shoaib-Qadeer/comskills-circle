@@ -1,7 +1,9 @@
 import type { ObjectId } from "mongodb";
 
 export type RemoteMode = "onsite" | "hybrid" | "remote";
-export type OppType = "internship" | "fellowship" | "summer_school" | "competition" | "event" | "job" | "other";
+export type OppType = "scholarship" | "fellowship" | "internship" | "job" | "research" | "exchange" | "summer_school" | "competition" | "event" | "other";
+export type DegreeLevel = "bachelor" | "master" | "phd" | "postdoc" | "any";
+export type Funding = "full" | "partial" | "none";
 
 export type Links = { linkedin?: string; github?: string; portfolio?: string };
 export type AccessStatus = "pending" | "approved" | "rejected";
@@ -211,11 +213,13 @@ export interface OpportunityDoc {
   location: string | null;
   remote: RemoteMode | null;
   type: OppType;
+  country: string | null;
+  degreeLevel: DegreeLevel[];
+  funding: Funding | null;
   deadline: Date | null;
   startDate: Date | null;
   durationMonths: number | null;
   paid: boolean | null;
-  frenchRequired: boolean | null;
   fields: string[];
   tags: string[];
   eligibility: string | null;
@@ -230,10 +234,8 @@ export interface OpportunityDoc {
 export type WarningKind =
   | "deadline_soon"
   | "deadline_urgent"
-  | "french_required"
-  | "duration_mismatch"
-  | "duration_unknown"
   | "deadline_unknown"
+  | "funding_unknown"
   | "unpaid";
 
 export type Warning = { kind: WarningKind; label: string };
@@ -429,11 +431,13 @@ export interface OpportunityDTO {
   location: string | null;
   remote: RemoteMode | null;
   type: OppType;
+  country: string | null;
+  degreeLevel: DegreeLevel[];
+  funding: Funding | null;
   deadline: string | null;
   startDate: string | null;
   durationMonths: number | null;
   paid: boolean | null;
-  frenchRequired: boolean | null;
   fields: string[];
   tags: string[];
   eligibility: string | null;
@@ -442,6 +446,8 @@ export interface OpportunityDTO {
   matchCount?: number; // poster/admin only
   status: "open" | "expired";
   warnings: Warning[];
+  /** The viewer's tracker entry for this opportunity, if any. */
+  trackedId?: string | null;
   createdAt: string;
 }
 
@@ -533,11 +539,13 @@ export interface ExtractedDraft {
   location: string | null;
   remote: RemoteMode | null;
   type: OppType;
+  country: string | null;
+  degreeLevel: DegreeLevel[];
+  funding: Funding | null;
   deadline: string | null;
   startDate: string | null;
   durationMonths: number | null;
   paid: boolean | null;
-  frenchRequired: boolean | null;
   fields: string[];
   tags: string[];
   eligibility: string | null;

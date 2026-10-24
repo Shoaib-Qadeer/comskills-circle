@@ -77,7 +77,7 @@ export function WarningChips({ warnings, hideUnknown, deadline }: { warnings: Wa
       {list.map((w) => (
         <Tag
           key={w.kind}
-          tone={w.kind === "deadline_urgent" || w.kind === "french_required" ? "ember" : w.kind.endsWith("_unknown") ? "neutral" : "brass"}
+          tone={w.kind === "deadline_urgent" ? "ember" : w.kind.endsWith("_unknown") ? "neutral" : "brass"}
           className={w.kind === "deadline_urgent" ? "urgent-pulse" : undefined}
         >
           {w.label}

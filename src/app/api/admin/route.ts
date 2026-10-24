@@ -1,3 +1,4 @@
+import { todayStored } from "@/lib/opportunities";
 import { z } from "zod";
 import { requireAdmin, ApiError } from "@/lib/auth";
 import { route, readJson, json } from "@/lib/api";
@@ -12,7 +13,7 @@ export const maxDuration = 60;
 export const GET = route(async () => {
   await requireAdmin();
   const c = await collections();
-  const todayUtc = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+  const todayUtc = todayStored();
   const weekAgo = new Date(Date.now() - 7 * 86400_000);
   const [users, pending, onboarded, active7, open, archived, matches, usage, settings] = await Promise.all([
     c.users.countDocuments({}),

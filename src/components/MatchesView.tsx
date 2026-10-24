@@ -2,30 +2,38 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
-import { Check, CircleAlert, ExternalLink, Heart, Lightbulb, Sparkles, Telescope, X, Target } from "lucide-react";
-import type { CoachAdvice, MatchDTO } from "@/lib/types";
+import { ArrowRight, Check, CircleAlert, ExternalLink, Heart, Lightbulb, Mail, Sparkles, Telescope, X, Target, Users } from "lucide-react";
+import type { AnyMatchDTO, CoachAdvice, OpportunityMatchDTO, ProposalMatchDTO } from "@/lib/types";
 import { api, daysLeft, firstName } from "@/lib/client";
+import { oppTypeEmoji, oppTypeLabel } from "@/lib/taxonomy";
 import { CountUp, DeadlinePill, OrgMark, ScoreRing, WarningChips } from "./bits";
 import { Button, EmptyState, FieldChip, LinkButton, Segmented, Skeleton, cx } from "./ui";
-import { OppMeta, OpportunityDetail } from "./OpportunityParts";
+import { OppMeta, OpportunityDetail, TrackButton } from "./OpportunityParts";
+import { StatusPill, commitmentText, needsText } from "./projects/ProposalCard";
 
 type Tab = "new" | "saved" | "all";
+type Kind = "all" | "proposal" | "opportunity";
 
 function greeting() {
   const h = new Date().getHours();
   return h < 5 ? "Still up" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
+/** "For you": project proposals and opportunities the matcher thinks fit you, plus anything you were tagged in or invited to. */
 export function MatchesView({ name }: { name: string }) {
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const kindParam = params.get("kind");
+  const kind: Kind = kindParam === "proposal" || kindParam === "opportunity" ? kindParam : "all";
   const [tab, setTab] = useState<Tab>("all");
-  const { data, mutate, isLoading } = useSWR<{ items: MatchDTO[] }>(`/api/matches?filter=all&kind=opportunity`);
+  const { data, error, mutate, isLoading } = useSWR<{ items: AnyMatchDTO[] }>(`/api/matches?filter=all`);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [open, setOpen] = useState<MatchDTO | null>(null);
+  const [openOpp, setOpenOpp] = useState<OpportunityMatchDTO | null>(null);
   // Snapshot of what was unseen when the page opened, so "New" doesn't empty while you read it
   const [newIds, setNewIds] = useState<Set<string> | null>(null);
   const markedRef = useRef(false);
@@ -49,16 +57,23 @@ export function MatchesView({ name }: { name: string }) {
     }
   }, [data]);
 
-  const all = useMemo(() => (data?.items ?? []).filter((m) => !hidden.has(m.id)), [data, hidden]);
+  const setKind = (k: Kind) => router.replace(k === "all" ? pathname : `${pathname}?kind=${k}`, { scroll: false });
+  const all = useMemo(() => (data?.items ?? []).filter((m) => !hidden.has(m.id) && (kind === "all" || m.kind === kind)), [data, hidden, kind]);
   const list = tab === "new" ? all.filter((m) => newIds?.has(m.id)) : tab === "saved" ? all.filter((m) => m.saved) : all;
+  const counts = useMemo(() => {
+    const items = (data?.items ?? []).filter((m) => !hidden.has(m.id));
+    return { all: items.length, proposal: items.filter((m) => m.kind === "proposal").length, opportunity: items.filter((m) => m.kind === "opportunity").length };
+  }, [data, hidden]);
   const closingSoon = all.filter((m) => {
+    if (m.kind !== "opportunity") return false;
     const n = daysLeft(m.opportunity.deadline);
     return n !== null && n >= 0 && n <= 14;
   }).length;
+  const newCount = all.filter((m) => newIds?.has(m.id)).length;
 
-  async function toggleSave(m: MatchDTO) {
+  async function toggleSave(m: AnyMatchDTO) {
     const saved = !m.saved;
-    mutate((d) => (d ? { items: d.items.map((x) => (x.id === m.id ? { ...x, saved } : x)) } : d), { revalidate: false });
+    mutate((d) => (d ? { items: d.items.map((x) => (x.id === m.id ? ({ ...x, saved } as AnyMatchDTO) : x)) } : d), { revalidate: false });
     try {
       await api(`/api/matches/${m.id}`, "PATCH", { saved });
       if (saved) toast.success("Saved");
@@ -67,8 +82,14 @@ export function MatchesView({ name }: { name: string }) {
     }
   }
 
-  async function dismiss(m: MatchDTO) {
+  async function dismiss(m: AnyMatchDTO) {
     setHidden((h) => new Set(h).add(m.id));
+    const unhide = () =>
+      setHidden((h) => {
+        const n = new Set(h);
+        n.delete(m.id);
+        return n;
+      });
     try {
       await api(`/api/matches/${m.id}`, "PATCH", { dismissed: true });
       toast("Dismissed", {
@@ -76,85 +97,110 @@ export function MatchesView({ name }: { name: string }) {
           label: "Undo",
           onClick: async () => {
             await api(`/api/matches/${m.id}`, "PATCH", { dismissed: false });
-            setHidden((h) => {
-              const n = new Set(h);
-              n.delete(m.id);
-              return n;
-            });
+            unhide();
           },
         },
       });
     } catch {
-      setHidden((h) => {
-        const n = new Set(h);
-        n.delete(m.id);
-        return n;
-      });
+      unhide();
     }
   }
 
+  const KIND_CHIPS: { value: Kind; label: string; icon?: React.ReactNode }[] = [
+    { value: "all", label: "Everything" },
+    { value: "proposal", label: "Projects", icon: <Users className="size-4" /> },
+    { value: "opportunity", label: "Opportunities", icon: <Sparkles className="size-4" /> },
+  ];
+
   return (
-    <div>
-      <div className="min-w-0">
-        <header className="mb-8">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">
-            {greeting()}, {name}.
-          </h1>
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1">
-            <Stat value={newIds?.size ?? 0} label={newIds?.size === 1 ? "new match" : "new matches"} tone="brass" loading={!data} />
-            <Stat value={closingSoon} label="closing within 2 weeks" tone="ember" loading={!data} />
-            <Stat value={all.filter((m) => m.saved).length} label="saved" tone="dim" loading={!data} />
-          </div>
-        </header>
+    <div className="mx-auto max-w-3xl">
+      <header className="mb-6">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">
+          {greeting()}
+          {name ? `, ${name}` : ""}.
+        </h1>
+        <p className="mt-2 text-dim">Projects and opportunities that fit your profile, best matches first.</p>
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1">
+          <Stat value={newCount} label={newCount === 1 ? "new match" : "new matches"} tone="brass" loading={!data} />
+          <Stat value={closingSoon} label="closing within 2 weeks" tone="ember" loading={!data} />
+          <Stat value={all.filter((m) => m.saved).length} label="saved" tone="dim" loading={!data} />
+        </div>
+      </header>
 
-        <Segmented
-          id="matches"
-          value={tab}
-          onChange={setTab}
-          className="mb-6"
-          options={[
-            { value: "new", label: "New", count: newIds?.size },
-            { value: "saved", label: "Saved", count: all.filter((m) => m.saved).length },
-            { value: "all", label: "All", count: all.length },
-          ]}
-        />
-
-        {isLoading ? (
-          <div className="space-y-4">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-40 rounded-[var(--radius-panel)]" />
-            ))}
-          </div>
-        ) : list.length === 0 ? (
-          <EmptyState
-            icon={<Telescope className="size-10" />}
-            title={tab === "saved" ? "Nothing saved yet" : tab === "new" ? "You're all caught up" : "No matches yet"}
-            action={
-              tab === "all" && (
-                <Link href="/opportunities/new" className="inline-flex h-11 items-center rounded-full bg-brass px-5 font-medium text-brass-ink">
-                  Share an opportunity
-                </Link>
-              )
-            }
+      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0" role="group" aria-label="Show">
+        {KIND_CHIPS.map((c) => (
+          <button
+            key={c.value}
+            onClick={() => setKind(c.value)}
+            aria-pressed={kind === c.value}
+            className={cx("inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm sm:h-9", kind === c.value ? "border-brass bg-brass/15 text-star" : "border-line-strong text-dim hover:text-star")}
           >
-            {tab === "saved"
-              ? "Tap the heart on a match to keep it here."
-              : tab === "new"
-                ? "New matches appear here as classmates share opportunities."
-                : "The more your class shares, the more you'll see. Start by sharing one yourself."}
-          </EmptyState>
-        ) : (
-          <motion.ul layout className="space-y-4">
-            <AnimatePresence initial={true} mode="popLayout">
-              {list.map((m, i) => (
-                <MatchCard key={m.id} m={m} index={i} onOpen={() => setOpen(m)} onSave={() => toggleSave(m)} onDismiss={() => dismiss(m)} />
-              ))}
-            </AnimatePresence>
-          </motion.ul>
-        )}
+            {c.icon} {c.label}
+            {data && <span className="tabular text-xs text-faint">{counts[c.value]}</span>}
+          </button>
+        ))}
       </div>
 
-      <OpportunityDetail o={open?.opportunity ?? null} open={Boolean(open)} onClose={() => setOpen(null)} />
+      <Segmented
+        id="matches"
+        value={tab}
+        onChange={setTab}
+        className="mb-6"
+        options={[
+          { value: "new", label: "New", count: newCount },
+          { value: "saved", label: "Saved", count: all.filter((m) => m.saved).length },
+          { value: "all", label: "All", count: all.length },
+        ]}
+      />
+
+      {error && !data ? (
+        <EmptyState icon={<Telescope className="size-10" />} title="Couldn't load your matches" action={<Button variant="ghost" onClick={() => mutate()}>Try again</Button>}>
+          Check your connection and try again.
+        </EmptyState>
+      ) : isLoading && !data ? (
+        <div className="space-y-4">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-40 rounded-[var(--radius-panel)]" />
+          ))}
+        </div>
+      ) : list.length === 0 ? (
+        <EmptyState
+          icon={<Telescope className="size-10" />}
+          title={tab === "saved" ? "Nothing saved yet" : tab === "new" ? "You're all caught up" : "No matches yet"}
+          action={
+            tab === "all" && (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link href="/projects" className="inline-flex h-11 items-center rounded-full bg-brass px-5 font-medium text-brass-ink">
+                  Browse projects
+                </Link>
+                <Link href="/settings" className="inline-flex h-11 items-center rounded-full border border-line-strong px-5 font-medium hover:bg-raised-2">
+                  Improve your profile
+                </Link>
+              </div>
+            )
+          }
+        >
+          {tab === "saved"
+            ? "Tap the heart on a match to keep it here."
+            : tab === "new"
+              ? "New matches appear here when members propose projects or share opportunities."
+              : "Matches come from your fields, skills and what you're looking for. A fuller profile gets better matches."}
+        </EmptyState>
+      ) : (
+        <motion.ul layout className="space-y-4">
+          <AnimatePresence initial={true} mode="popLayout">
+            {list.map((m, i) =>
+              m.kind === "opportunity" ? (
+                <MatchCard key={m.id} m={m} index={i} onOpen={() => setOpenOpp(m)} onSave={() => toggleSave(m)} onDismiss={() => dismiss(m)} onTracked={() => mutate()} />
+              ) : (
+                <ProjectMatchCard key={m.id} m={m} index={i} onSave={() => toggleSave(m)} onDismiss={() => dismiss(m)} />
+              ),
+            )}
+          </AnimatePresence>
+        </motion.ul>
+      )}
+
+      <OpportunityDetail o={openOpp?.opportunity ?? null} open={Boolean(openOpp)} onClose={() => setOpenOpp(null)} onTracked={() => mutate()} />
     </div>
   );
 }
@@ -170,39 +216,115 @@ function Stat({ value, label, tone, loading }: { value: number; label: string; t
   );
 }
 
-function MatchCard({ m, index, onOpen, onSave, onDismiss }: { m: MatchDTO; index: number; onOpen: () => void; onSave: () => void; onDismiss: () => void }) {
+const cardMotion = (index: number) => ({
+  layout: true,
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0, transition: { delay: Math.min(index, 10) * 0.04, type: "spring" as const, stiffness: 260, damping: 26 } },
+  exit: { opacity: 0, x: 80, transition: { duration: 0.22 } },
+});
+
+function Banner({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="-mx-4 -mt-4 mb-4 flex items-start gap-2 border-b border-brass/25 bg-brass/[0.08] px-4 py-2.5 text-sm sm:-mx-6 sm:-mt-6 sm:mb-5 sm:px-6">
+      <span className="mt-0.5 shrink-0 text-brass">{icon}</span>
+      <span className="min-w-0">{children}</span>
+    </div>
+  );
+}
+
+function ProjectMatchCard({ m, index, onSave, onDismiss }: { m: ProposalMatchDTO; index: number; onSave: () => void; onDismiss: () => void }) {
+  const p = m.proposal;
+  const invited = m.source === "invited" || p.myStatus === "invited";
+  const commitment = commitmentText(p.commitment);
+  return (
+    <motion.li {...cardMotion(index)} className={cx("relative overflow-hidden rounded-[var(--radius-panel)] border bg-raised/80 p-4 sm:p-6", invited ? "border-brass/50 shadow-[0_0_0_1px_var(--glow),0_20px_50px_-30px_var(--glow)]" : "border-line")}>
+      {invited && (
+        <Banner icon={<Mail className="size-4" />}>
+          <span className="font-medium text-brass">{p.proposer ? `${firstName(p.proposer.name)} invited you` : "You were invited"}</span>
+          <span className="text-dim"> to join this project.</span>
+        </Banner>
+      )}
+      <div className="flex gap-4">
+        <div className="hidden sm:block">
+          <ScoreRing score={m.score} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-faint">
+                <Users className="size-3.5" /> Project <StatusPill status={p.status} />
+              </div>
+              <Link href={`/projects/${p.id}`} className="font-display text-xl font-semibold leading-snug hover:text-brass">
+                {p.title}
+              </Link>
+            </div>
+            <div className="shrink-0 sm:hidden">
+              <ScoreRing score={m.score} size={44} />
+            </div>
+          </div>
+          <p className="mt-1 line-clamp-2 text-sm text-dim">{p.problem}</p>
+          {m.reason && (
+            <p className="mt-3 leading-relaxed">
+              {m.reason}
+              {m.basic && <span className="ml-1.5 text-xs text-faint">(basic match)</span>}
+            </p>
+          )}
+          <p className="mt-2 text-sm text-dim">
+            {needsText(p)}
+            {commitment && <span className="text-faint"> · {commitment}</span>}
+          </p>
+          {p.peopleNeeded.skills.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {p.peopleNeeded.skills.slice(0, 5).map((s) => (
+                <span key={s} className="rounded-full border border-line-strong px-2.5 py-0.5 text-xs text-dim">
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <LinkButton href={`/projects/${p.id}`} variant="primary" size="sm">
+              {invited ? "See the invite" : "See the project"} <ArrowRight className="size-3.5" />
+            </LinkButton>
+            <SaveButton saved={m.saved} onClick={onSave} />
+            <span className="ml-auto">
+              <Button variant="quiet" size="sm" onClick={onDismiss} aria-label="Dismiss match">
+                <X className="size-4" />
+              </Button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.li>
+  );
+}
+
+function MatchCard({ m, index, onOpen, onSave, onDismiss, onTracked }: { m: OpportunityMatchDTO; index: number; onOpen: () => void; onSave: () => void; onDismiss: () => void; onTracked: () => void }) {
   const o = m.opportunity;
   const [coachOpen, setCoachOpen] = useState(false);
   const tagged = m.source === "tagged";
   const strongAuto = !tagged || m.score >= 60;
   return (
-    <motion.li
-      layout
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0, transition: { delay: Math.min(index, 10) * 0.04, type: "spring", stiffness: 260, damping: 26 } }}
-      exit={{ opacity: 0, x: 80, transition: { duration: 0.22 } }}
-      className={cx(
-        "relative overflow-hidden rounded-[var(--radius-panel)] border bg-raised/80 p-5 sm:p-6",
-        tagged ? "border-brass/50 shadow-[0_0_0_1px_var(--glow),0_20px_50px_-30px_var(--glow)]" : "border-line",
-      )}
-    >
+    <motion.li {...cardMotion(index)} className={cx("relative overflow-hidden rounded-[var(--radius-panel)] border bg-raised/80 p-4 sm:p-6", tagged ? "border-brass/50 shadow-[0_0_0_1px_var(--glow),0_20px_50px_-30px_var(--glow)]" : "border-line")}>
       {tagged && m.taggedBy && (
-        <div className="-mx-5 -mt-5 mb-5 flex items-center gap-2 border-b border-brass/25 bg-brass/[0.08] px-5 py-2.5 text-sm sm:-mx-6 sm:-mt-6 sm:px-6">
-          <Target className="size-4 text-brass" />
-          <span>
-            <span className="font-medium text-brass">{firstName(m.taggedBy.name)} thought of you</span>
-            {m.taggedNote && <span className="text-dim"> — “{m.taggedNote}”</span>}
-          </span>
-        </div>
+        <Banner icon={<Target className="size-4" />}>
+          <span className="font-medium text-brass">{firstName(m.taggedBy.name)} thought of you</span>
+          {m.taggedNote && <span className="text-dim"> · “{m.taggedNote}”</span>}
+        </Banner>
       )}
       <div className="flex gap-4">
         <div className="hidden sm:block">{strongAuto ? <ScoreRing score={m.score} /> : <OrgMark name={o.organization} url={o.url} />}</div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <button onClick={onOpen} className="text-left">
-              <h3 className="font-display text-xl font-semibold leading-snug hover:text-brass">{o.title}</h3>
-            </button>
-            <div className="sm:hidden">{strongAuto && <ScoreRing score={m.score} size={44} />}</div>
+            <div className="min-w-0">
+              <p className="mb-1 text-xs text-faint">
+                <span aria-hidden>{oppTypeEmoji(o.type)}</span> {oppTypeLabel(o.type)}
+              </p>
+              <button onClick={onOpen} className="text-left">
+                <h3 className="font-display text-xl font-semibold leading-snug hover:text-brass">{o.title}</h3>
+              </button>
+            </div>
+            <div className="shrink-0 sm:hidden">{strongAuto && <ScoreRing score={m.score} size={44} />}</div>
           </div>
           <OppMeta o={o} className="mt-1" />
           {m.reason && strongAuto && (
@@ -228,6 +350,7 @@ function MatchCard({ m, index, onOpen, onSave, onDismiss }: { m: MatchDTO; index
             <Button variant="ghost" size="sm" onClick={onOpen}>
               Details
             </Button>
+            <TrackButton o={o} onTracked={onTracked} className="h-10 px-3 text-sm sm:h-8" />
             <SaveButton saved={m.saved} onClick={onSave} />
             <CoachToggle open={coachOpen} onClick={() => setCoachOpen((v) => !v)} />
             <span className="ml-auto flex items-center gap-3">
@@ -249,7 +372,7 @@ function CoachToggle({ open, onClick }: { open: boolean; onClick: () => void }) 
     <button
       onClick={onClick}
       aria-expanded={open}
-      className={cx("inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm transition-colors", open ? "bg-brass/10 text-brass" : "text-dim hover:text-star")}
+      className={cx("inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm transition-colors sm:h-8", open ? "bg-brass/10 text-brass" : "text-dim hover:text-star")}
     >
       <Lightbulb className="size-4" /> How to approach this
     </button>
@@ -355,7 +478,7 @@ function SaveButton({ saved, onClick }: { saved: boolean; onClick: () => void })
       }}
       aria-pressed={saved}
       aria-label={saved ? "Unsave" : "Save"}
-      className={cx("relative inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm transition-colors", saved ? "text-ember" : "text-dim hover:text-star")}
+      className={cx("relative inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm transition-colors sm:h-8", saved ? "text-ember" : "text-dim hover:text-star")}
     >
       <motion.span key={burst} initial={burst ? { scale: 0.6 } : false} animate={{ scale: [0.6, 1.35, 1] }} transition={{ duration: 0.35 }}>
         <Heart className={cx("size-4", saved && "fill-current")} />

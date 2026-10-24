@@ -5,8 +5,7 @@ import { generateJSON, LlmUnavailableError } from "@/lib/llm";
 import { systemPrompt } from "@/lib/prompts";
 import { llmCoachSchema } from "@/lib/schemas";
 import { rateLimit } from "@/lib/ratelimit";
-import { getField } from "@/lib/taxonomy";
-import { profileForLlm } from "@/lib/matching";
+import { oppForLlm, profileForLlm } from "@/lib/matching";
 import type { CoachAdvice } from "@/lib/types";
 
 export const maxDuration = 45;
@@ -34,20 +33,7 @@ export const POST = route(async (req, ctx: IdCtx) => {
       // No name, email, phone, university or links — only skills and goals
       user: JSON.stringify({
         student: profileForLlm(user, "me"),
-        opportunity: {
-          title: opp.title,
-          organization: opp.organization,
-          type: opp.type,
-          location: opp.location,
-          remote: opp.remote,
-          durationMonths: opp.durationMonths,
-          deadline: opp.deadline?.toISOString().slice(0, 10) ?? null,
-          frenchRequired: opp.frenchRequired,
-          fields: opp.fields.map((f) => getField(f).label),
-          tags: opp.tags,
-          eligibility: opp.eligibility,
-          summary: opp.summary,
-        },
+        opportunity: { ...oppForLlm(opp), deadline: opp.deadline?.toISOString().slice(0, 10) ?? null },
       }),
       schema: llmCoachSchema,
       maxOutputTokens: 1200,

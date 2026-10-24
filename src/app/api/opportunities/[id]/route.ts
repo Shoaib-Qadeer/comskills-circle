@@ -6,6 +6,7 @@ import { loadMiniUsers, opportunityDTO } from "@/lib/serialize";
 import { onlyValidFields } from "@/lib/taxonomy";
 import { normalizeUrl } from "@/lib/url";
 import { matchOpportunity } from "@/lib/matching";
+import { dateOrNull, MATCH_FIELDS, trackedMap } from "@/lib/opportunities";
 
 export const maxDuration = 60;
 
@@ -22,8 +23,8 @@ async function load(ctx: IdCtx) {
 export const GET = route(async (_req, ctx: IdCtx) => {
   const user = await requireUser();
   const opp = await load(ctx);
-  const posters = await loadMiniUsers([opp.postedBy]);
-  return json(opportunityDTO(opp, user, posters));
+  const [posters, tracked] = await Promise.all([loadMiniUsers([opp.postedBy]), trackedMap(user._id, [opp._id])]);
+  return json({ ...opportunityDTO(opp, user, posters), trackedId: tracked.get(String(opp._id)) ?? null });
 });
 
 export const PATCH = route(async (req, ctx: IdCtx) => {
@@ -34,7 +35,7 @@ export const PATCH = route(async (req, ctx: IdCtx) => {
   const set: Record<string, unknown> = { ...patch, updatedAt: new Date() };
   if (patch.fields) set.fields = onlyValidFields(patch.fields);
   for (const k of ["deadline", "startDate"] as const) {
-    if (k in patch) set[k] = patch[k] ? new Date(`${patch[k]!.slice(0, 10)}T00:00:00Z`) : null;
+    if (k in patch) set[k] = dateOrNull(patch[k]);
   }
   if (patch.url) {
     const key = normalizeUrl(patch.url);
@@ -42,9 +43,12 @@ export const PATCH = route(async (req, ctx: IdCtx) => {
     set.urlKey = key;
   }
   const { opportunities } = await collections();
+  if (patch.url) {
+    const clash = await opportunities.findOne({ urlKey: set.urlKey as string, _id: { $ne: opp._id } }, { projection: { _id: 1 } });
+    if (clash) throw new ApiError(409, "Another post already uses that link.");
+  }
   await opportunities.updateOne({ _id: opp._id }, { $set: set });
-  const matchFields = ["title", "summary", "fields", "tags", "location", "remote", "frenchRequired", "type", "durationMonths", "eligibility"];
-  if (matchFields.some((k) => k in patch)) await matchOpportunity(opp._id);
+  if (MATCH_FIELDS.some((k) => k in patch)) await matchOpportunity(opp._id);
   const fresh = await opportunities.findOne({ _id: opp._id });
   const posters = await loadMiniUsers([fresh!.postedBy]);
   return json(opportunityDTO(fresh!, user, posters));
@@ -54,7 +58,12 @@ export const DELETE = route(async (_req, ctx: IdCtx) => {
   const user = await requireUser();
   const opp = await load(ctx);
   if (String(opp.postedBy) !== String(user._id) && !user.isAdmin) throw new ApiError(403, "Only the poster can delete this.");
-  const { opportunities, matches } = await collections();
-  await Promise.all([opportunities.deleteOne({ _id: opp._id }), matches.deleteMany({ kind: "opportunity", targetId: opp._id })]);
+  const { opportunities, matches, scholarships } = await collections();
+  // Tracker entries keep their copy of the name/country/deadline; only the link to the post goes
+  await Promise.all([
+    opportunities.deleteOne({ _id: opp._id }),
+    matches.deleteMany({ kind: "opportunity", targetId: opp._id }),
+    scholarships.updateMany({ opportunityId: opp._id }, { $set: { opportunityId: null } }),
+  ]);
   return json({ ok: true });
 });

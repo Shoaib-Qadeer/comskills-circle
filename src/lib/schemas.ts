@@ -24,7 +24,9 @@ const isoDate = z
   .nullable();
 
 export const remoteSchema = z.enum(["onsite", "hybrid", "remote"]);
-export const oppTypeSchema = z.enum(["internship", "fellowship", "summer_school", "competition", "event", "job", "other"]);
+export const oppTypeSchema = z.enum(["scholarship", "fellowship", "internship", "job", "research", "exchange", "summer_school", "competition", "event", "other"]);
+export const degreeLevelSchema = z.enum(["bachelor", "master", "phd", "postdoc", "any"]);
+export const fundingSchema = z.enum(["full", "partial", "none"]);
 
 const freeChips = (max: number, len = 40) =>
   z
@@ -114,11 +116,13 @@ export const opportunityInputSchema = z.object({
   location: z.string().trim().max(120).nullable(),
   remote: remoteSchema.nullable(),
   type: oppTypeSchema,
+  country: z.string().trim().max(80).nullable().default(null),
+  degreeLevel: z.array(degreeLevelSchema).max(5).default([]).transform((a) => Array.from(new Set(a))),
+  funding: fundingSchema.nullable().default(null),
   deadline: isoDate,
   startDate: isoDate,
   durationMonths: z.number().min(0).max(60).nullable(),
   paid: z.boolean().nullable(),
-  frenchRequired: z.boolean().nullable(),
   fields: shortList(4, 40),
   tags: shortList(6, 40),
   eligibility: z.string().trim().max(240).nullable(),
@@ -126,7 +130,7 @@ export const opportunityInputSchema = z.object({
 });
 
 export const publishSchema = opportunityInputSchema.extend({
-  taggedFor: z.array(z.string()).max(19).default([]),
+  taggedFor: z.array(z.string()).max(20).default([]),
   posterNote: z.string().trim().max(200).nullable().default(null),
 });
 
@@ -159,9 +163,14 @@ export const llmExtractionSchema = z.object({
   type: oppTypeSchema.catch("other"),
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional().catch(null).transform((v) => v ?? null),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional().catch(null).transform((v) => v ?? null),
+  country: nullableStr(80),
+  degreeLevel: z
+    .array(z.string())
+    .catch([])
+    .transform((a) => Array.from(new Set(a.map((x) => x.toLowerCase().trim()).filter((x): x is z.infer<typeof degreeLevelSchema> => degreeLevelSchema.safeParse(x).success)))),
+  funding: fundingSchema.nullable().optional().catch(null).transform((v) => v ?? null),
   durationMonths: z.number().min(0).max(60).nullable().optional().catch(null).transform((v) => v ?? null),
   paid: z.boolean().nullable().optional().catch(null).transform((v) => v ?? null),
-  frenchRequired: z.boolean().nullable().optional().catch(null).transform((v) => v ?? null),
   fields: z.array(z.string()).catch([]).transform((a) => a.slice(0, 4)),
   tags: z.array(z.string()).catch([]).transform((a) => a.map((t) => t.toLowerCase().trim().slice(0, 40)).filter(Boolean).slice(0, 6)),
   eligibility: nullableStr(240),

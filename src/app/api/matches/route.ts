@@ -4,6 +4,7 @@ import { collections } from "@/lib/db";
 import { loadMiniUsers, opportunityDTO } from "@/lib/serialize";
 import { loadProposalContext, proposalCardDTO } from "@/lib/proposals";
 import { urgencyRank } from "@/lib/warnings";
+import { trackedMap } from "@/lib/opportunities";
 import type { AnyMatchDTO, MatchDoc } from "@/lib/types";
 
 /**
@@ -32,7 +33,7 @@ export const GET = route(async (req) => {
   const oppById = new Map(opps.map((o) => [String(o._id), o]));
   const propById = new Map(props.map((p) => [String(p._id), p]));
   const people = await loadMiniUsers([...opps.map((o) => o.postedBy), ...ms.map((m) => m.taggedBy)]);
-  const pctx = await loadProposalContext(props, user._id);
+  const [pctx, tracked] = await Promise.all([loadProposalContext(props, user._id), trackedMap(user._id, opps.map((o) => o._id))]);
 
   const base = (m: MatchDoc) => {
     const tb = m.taggedBy ? people.get(String(m.taggedBy)) : null;
@@ -54,7 +55,7 @@ export const GET = route(async (req) => {
   for (const m of oppMs) {
     const o = oppById.get(String(m.targetId));
     if (!o) continue;
-    const dto = opportunityDTO(o, user, people);
+    const dto = { ...opportunityDTO(o, user, people), trackedId: tracked.get(String(o._id)) ?? null };
     // Current views show open opportunities only; closed ones live in the Archive
     if (filter === "closed" ? dto.status !== "expired" : dto.status === "expired") continue;
     items.push({ ...base(m), kind: "opportunity", coach: m.coach ?? null, opportunity: dto });
