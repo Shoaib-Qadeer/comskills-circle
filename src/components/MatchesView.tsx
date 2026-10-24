@@ -23,7 +23,7 @@ function greeting() {
 export function MatchesView({ name }: { name: string }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>("all");
-  const { data, mutate, isLoading } = useSWR<{ items: MatchDTO[] }>(`/api/matches?filter=all`);
+  const { data, mutate, isLoading } = useSWR<{ items: MatchDTO[] }>(`/api/matches?filter=all&kind=opportunity`);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<MatchDTO | null>(null);
   // Snapshot of what was unseen when the page opened, so "New" doesn't empty while you read it

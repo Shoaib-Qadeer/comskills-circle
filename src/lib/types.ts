@@ -238,14 +238,19 @@ export type WarningKind =
 
 export type Warning = { kind: WarningKind; label: string };
 
+export type MatchKind = "opportunity" | "proposal";
+export type MatchSource = "auto" | "tagged" | "invited";
+
+/** One person matched to one opportunity or one project proposal (unique on userId + kind + targetId). */
 export interface MatchDoc {
   _id: ObjectId;
   userId: ObjectId;
-  opportunityId: ObjectId;
+  kind: MatchKind;
+  targetId: ObjectId;
   score: number;
   reason: string;
-  basic: boolean; // produced by the fallback matcher
-  source: "auto" | "tagged";
+  basic: boolean; // produced by the rule-based fallback
+  source: MatchSource;
   taggedBy: ObjectId | null;
   taggedNote: string | null;
   seen: boolean;
@@ -440,18 +445,85 @@ export interface OpportunityDTO {
   createdAt: string;
 }
 
-export interface MatchDTO {
+interface MatchBaseDTO {
   id: string;
   score: number;
   reason: string;
   basic: boolean;
-  source: "auto" | "tagged";
+  source: MatchSource;
   taggedBy: { id: string; name: string } | null;
   taggedNote: string | null;
   seen: boolean;
   saved: boolean;
+  createdAt: string;
+}
+export interface OpportunityMatchDTO extends MatchBaseDTO {
+  kind: "opportunity";
   coach: CoachAdvice | null;
   opportunity: OpportunityDTO;
+}
+export interface ProposalMatchDTO extends MatchBaseDTO {
+  kind: "proposal";
+  proposal: ProposalCardDTO;
+}
+export type AnyMatchDTO = OpportunityMatchDTO | ProposalMatchDTO;
+/** Kept for opportunity-only views. */
+export type MatchDTO = OpportunityMatchDTO;
+
+export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
+  open: "Open",
+  team_forming: "Team forming",
+  in_progress: "In progress",
+  completed: "Completed",
+};
+
+export interface ProposalCardDTO {
+  id: string;
+  title: string;
+  problem: string;
+  proposer: MiniUserDTO | null;
+  proposedByMe: boolean;
+  status: ProposalStatus;
+  acceptingMembers: boolean;
+  peopleNeeded: { count: number; skills: string[] };
+  acceptedCount: number;
+  commitment: { hoursPerWeek: number | null; duration: string };
+  fields: string[];
+  tags: string[];
+  /** A few accepted members' faces for the card. */
+  team: MiniUserDTO[];
+  myStatus: MemberStatus | null;
+  /** The viewer's match, if the matcher thinks it fits them. */
+  match: { score: number; reason: string; basic: boolean } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamMemberDTO extends MiniUserDTO {
+  fieldOfStudy: string;
+  skills: string[];
+  note: string;
+  status: MemberStatus;
+  at: string;
+}
+
+export interface ProposalDetailDTO extends ProposalCardDTO {
+  idea: string;
+  links: string[];
+  teamMembers: TeamMemberDTO[];
+  myNote: string | null;
+  statusChangedAt: string;
+  /** Only for the proposer and admins: who's interested, invited, declined or gone. */
+  manage: { interested: TeamMemberDTO[]; invited: TeamMemberDTO[]; past: TeamMemberDTO[]; matchCount: number } | null;
+  canManage: boolean;
+}
+
+export interface SuggestedPersonDTO {
+  member: MemberCardDTO;
+  score: number;
+  reason: string;
+  basic: boolean;
+  invited: boolean;
 }
 
 export interface ExtractedDraft {

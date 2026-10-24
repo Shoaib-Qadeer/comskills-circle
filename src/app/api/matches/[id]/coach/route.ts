@@ -19,10 +19,10 @@ export const POST = route(async (req, ctx: IdCtx) => {
   if (!oid) throw new ApiError(404, "Not found");
   const refresh = new URL(req.url).searchParams.get("refresh") === "1";
   const { matches, opportunities } = await collections();
-  const match = await matches.findOne({ _id: oid, userId: user._id });
+  const match = await matches.findOne({ _id: oid, userId: user._id, kind: "opportunity" });
   if (!match) throw new ApiError(404, "Not found");
   if (match.coach && !refresh) return json({ coach: match.coach });
-  const opp = await opportunities.findOne({ _id: match.opportunityId });
+  const opp = await opportunities.findOne({ _id: match.targetId });
   if (!opp) throw new ApiError(404, "This opportunity was removed.");
 
   await rateLimit("coach", String(user._id), { exempt: user.isAdmin });

@@ -14,7 +14,7 @@ export function loginErrorMessage(code: string | null | undefined): string {
 }
 
 /** Where a signed-in person should land. */
-export const HOME_PATH = "/matches";
+export const HOME_PATH = "/projects";
 export function landingFor(u: { status: string; onboarded: boolean }): string {
   if (u.status !== "approved") return "/pending";
   return u.onboarded ? HOME_PATH : "/onboarding";

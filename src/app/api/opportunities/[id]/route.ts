@@ -55,6 +55,6 @@ export const DELETE = route(async (_req, ctx: IdCtx) => {
   const opp = await load(ctx);
   if (String(opp.postedBy) !== String(user._id) && !user.isAdmin) throw new ApiError(403, "Only the poster can delete this.");
   const { opportunities, matches } = await collections();
-  await Promise.all([opportunities.deleteOne({ _id: opp._id }), matches.deleteMany({ opportunityId: opp._id })]);
+  await Promise.all([opportunities.deleteOne({ _id: opp._id }), matches.deleteMany({ kind: "opportunity", targetId: opp._id })]);
   return json({ ok: true });
 });

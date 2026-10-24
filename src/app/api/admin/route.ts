@@ -3,7 +3,7 @@ import { requireAdmin, ApiError } from "@/lib/auth";
 import { route, readJson, json } from "@/lib/api";
 import { collections, toObjectId } from "@/lib/db";
 import { activeModel, llmKeyConfigured, llmProvider, llmUsage } from "@/lib/llm";
-import { matchOpportunity, matchProfile } from "@/lib/matching";
+import { matchOpportunity, matchProfile, matchProposal } from "@/lib/matching";
 import { getSettings } from "@/lib/settings";
 
 export const maxDuration = 60;
@@ -41,6 +41,7 @@ export const GET = route(async () => {
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("rematch"), opportunityId: z.string() }),
+  z.object({ action: z.literal("rematchProposal"), proposalId: z.string() }),
   z.object({ action: z.literal("rematchUser"), userId: z.string() }),
 ]);
 
@@ -51,6 +52,11 @@ export const POST = route(async (req) => {
     const oid = toObjectId(body.opportunityId);
     if (!oid) throw new ApiError(404, "Not found");
     return json({ matchCount: await matchOpportunity(oid) });
+  }
+  if (body.action === "rematchProposal") {
+    const pid = toObjectId(body.proposalId);
+    if (!pid) throw new ApiError(404, "Not found");
+    return json({ matchCount: await matchProposal(pid) });
   }
   const uid = toObjectId(body.userId);
   if (!uid) throw new ApiError(404, "Not found");

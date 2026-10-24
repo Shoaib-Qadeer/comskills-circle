@@ -2,8 +2,20 @@ import type { ZodType } from "zod";
 import { collections } from "./db";
 import { getSettings, type AiFeature } from "./settings";
 import type { LlmLogDoc } from "./types";
+import { localDayKey } from "./time";
 
 export class LlmUnavailableError extends Error {}
+
+/** An HTTP error from the provider (we look at 429 = rate limited). */
+export class ProviderError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+/** Back-off used after a 429 before the single retry. Tests can shorten it. */
+export const RATE_LIMIT_BACKOFF_MS = { value: 4000 };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const TIMEOUT_MS = 25_000;
 
@@ -28,8 +40,9 @@ export function llmProvider(): string {
   return envConfig().provider;
 }
 
+// Usage is counted per day in the app time zone, like the email budget.
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDayKey();
 }
 
 /** Atomically reserves one call from today's budget. Throws when the call or token cap is reached. */
@@ -63,7 +76,7 @@ export async function llmUsage(days = 14): Promise<{ date: string; calls: number
   const { usage } = await collections();
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
+    const d = localDayKey(new Date(Date.now() - i * 86400_000));
     out.push(d);
   }
   const docs = await usage.find({ _id: { $in: out } }).toArray();
@@ -97,7 +110,7 @@ async function callProvider(model: string, system: string, user: string, maxOutp
         generationConfig: { temperature, maxOutputTokens, responseMimeType: "application/json" },
       }),
     });
-    if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new ProviderError(res.status, `Gemini ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
     const parts = data?.candidates?.[0]?.content?.parts ?? [];
     const text = parts.map((p: { text?: string }) => p.text || "").join("");
@@ -117,7 +130,7 @@ async function callProvider(model: string, system: string, user: string, maxOutp
         messages: [{ role: "user", content: user }],
       }),
     });
-    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new ProviderError(res.status, `Anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
     const text = (data?.content ?? []).map((b: { type: string; text?: string }) => (b.type === "text" ? b.text : "")).join("");
     return { text, inputTokens: data?.usage?.input_tokens, outputTokens: data?.usage?.output_tokens };
@@ -139,7 +152,7 @@ async function callProvider(model: string, system: string, user: string, maxOutp
         ],
       }),
     });
-    if (!res.ok) throw new Error(`${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new ProviderError(res.status, `${provider} ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = await res.json();
     return { text: data?.choices?.[0]?.message?.content ?? "", inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens };
   }
@@ -185,6 +198,7 @@ export async function generateJSON<T>(opts: {
   const label = opts.label || opts.feature;
   let user = opts.user;
   let lastErr: unknown;
+  let backedOff = false;
   for (let attempt = 0; attempt < 2; attempt++) {
     await reserveCall(settings.ai.dailyCallLimit, settings.ai.dailyTokenLimit);
     const started = Date.now();
@@ -207,6 +221,7 @@ export async function generateJSON<T>(opts: {
     } catch (err) {
       if (err instanceof LlmUnavailableError) throw err;
       lastErr = err;
+      const rateLimited = err instanceof ProviderError && err.status === 429;
       await record({
         at: new Date(),
         label,
@@ -217,6 +232,12 @@ export async function generateJSON<T>(opts: {
         ms: Date.now() - started,
         error: err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300),
       });
+      if (rateLimited) {
+        // Free tier is 15 requests a minute: wait once, retry once, then let the caller fall back.
+        if (backedOff) break;
+        backedOff = true;
+        await sleep(RATE_LIMIT_BACKOFF_MS.value);
+      }
     }
   }
   console.error(`[llm] ${label} failed`, lastErr);
