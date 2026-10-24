@@ -9,6 +9,7 @@ import { passwordProblem, PASSWORD_MAX } from "./password-rules";
 import { appUrl, sendEmail } from "./mail";
 import { approvedEmail, codeEmail, signupAlertEmail } from "./mail-templates";
 import type { AccessStatus, UserDoc } from "./types";
+import { DEFAULT_NOTIFY } from "./types";
 
 export const emailSchema = z
   .string()
@@ -44,45 +45,46 @@ export const resetSchema = z.object({ email: emailSchema, code: codeSchema, pass
 export const FORGOT_REPLY = "If that email has an account, we sent a code. Check your inbox (and spam).";
 export const EXISTING_ACCOUNT = "That email already has an account. Log in or reset your password.";
 
-/** A fresh user document as stored at sign-up (pending and unverified). */
+/** A fresh user document as stored at sign-up (pending and unverified). Profile fields come in onboarding. */
 export function newUserDoc(p: { name: string; email: string; passwordHash: string; batch: string | null; saysTeam: boolean; now: Date }): Omit<UserDoc, "_id"> {
   return {
     email: p.email,
     passwordHash: p.passwordHash,
     emailVerifiedAt: null,
     sessionVersion: 0,
+    name: p.name,
+    hasPhoto: false,
+    photoVersion: 0,
     role: "participant",
     teamTitle: null,
     batch: null,
     signupHint: { batch: p.batch, saysTeam: p.saysTeam },
-    name: p.name,
     status: "pending",
     statusChangedAt: p.now,
     onboarded: false,
-    hasPosted: false,
+    university: "",
+    city: "",
+    country: "Pakistan",
+    whatsapp: null,
+    contactEmail: null,
+    fieldOfStudy: "",
+    skills: [],
+    tools: [],
+    experience: "",
+    links: {},
+    lookingFor: [],
+    lookingForNote: "",
+    volunteering: { open: false, for: null, areas: [], hoursPerMonth: null },
+    fields: [],
+    freeTags: [],
+    notify: DEFAULT_NOTIFY,
+    seen: { announcementsAt: p.now, projectsAt: p.now },
+    lastDigestAt: null,
     isAdmin: false,
+    hasPosted: false,
     lastSeenAt: null,
     createdAt: p.now,
     updatedAt: p.now,
-    ...legacyProfileDefaults(),
-  } as Omit<UserDoc, "_id">;
-}
-
-// Profile fields are filled in during onboarding.
-function legacyProfileDefaults() {
-  return {
-    photoUrl: null,
-    visibility: "class" as const,
-    headline: "",
-    summary: "",
-    fields: [],
-    freeTags: [],
-    targetRoles: [],
-    preferredLocations: [],
-    openToFrench: false,
-    skillsOffered: [],
-    collaborateOn: "",
-    links: {},
   };
 }
 

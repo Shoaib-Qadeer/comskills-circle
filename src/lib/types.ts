@@ -1,13 +1,23 @@
 import type { ObjectId } from "mongodb";
 
-export type Visibility = "private" | "class" | "open";
 export type RemoteMode = "onsite" | "hybrid" | "remote";
 export type OppType = "internship" | "fellowship" | "summer_school" | "competition" | "event" | "job" | "other";
 
-export type Links = { linkedin?: string; cv?: string; portfolio?: string; github?: string };
+export type Links = { linkedin?: string; github?: string; portfolio?: string };
 export type AccessStatus = "pending" | "approved" | "rejected";
-
 export type Role = "participant" | "team";
+export type LookingFor = "scholarship" | "research" | "job" | "internship" | "collaborators";
+export type VolunteerFor = "comskills" | "other" | "both";
+export type DigestFrequency = "weekly" | "daily" | "off";
+
+export type InstantPrefs = { interest: boolean; teamUpdates: boolean; connect: boolean; pinned: boolean; invites: boolean };
+export type NotifyPrefs = { digest: DigestFrequency; instant: InstantPrefs };
+export type Volunteering = { open: boolean; for: VolunteerFor | null; areas: string[]; hoursPerMonth: number | null };
+
+export const DEFAULT_NOTIFY: NotifyPrefs = {
+  digest: "weekly",
+  instant: { interest: true, teamUpdates: true, connect: true, pinned: true, invites: true },
+};
 
 export interface UserDoc {
   _id: ObjectId;
@@ -16,32 +26,179 @@ export interface UserDoc {
   emailVerifiedAt: Date | null;
   /** Bumped on password change/reset; sessions carrying an older version are rejected. */
   sessionVersion: number;
-  role: Role;
-  teamTitle: string | null;
-  batch: string | null;
-  signupHint: { batch: string | null; saysTeam: boolean };
   name: string;
-  photoUrl: string | null;
-  onboarded: boolean;
-  visibility: Visibility;
-  headline: string;
-  summary: string;
-  fields: string[];
-  freeTags: string[];
-  targetRoles: string[];
-  preferredLocations: string[];
-  openToFrench: boolean;
-  skillsOffered: string[];
-  collaborateOn: string;
-  links: Links;
-  isAdmin: boolean;
-  hasPosted: boolean;
-  /** Missing on accounts created before approvals existed — treated as approved. */
+  hasPhoto: boolean;
+  /** Changes on every upload so photo URLs can be cached forever. */
+  photoVersion: number;
+  role: Role;
+  /** e.g. "Mentor – scholarships" (team only). */
+  teamTitle: string | null;
+  /** id from settings.batches; participants only. */
+  batch: string | null;
+  /** What they said at sign-up; the admin sets the real role/batch. */
+  signupHint: { batch: string | null; saysTeam: boolean };
   status?: AccessStatus;
   statusChangedAt?: Date | null;
+  onboarded: boolean;
+  // Basics
+  university: string;
+  city: string;
+  country: string;
+  /** E.164, e.g. +923001234567 */
+  whatsapp: string | null;
+  /** Defaults to the account email. */
+  contactEmail: string | null;
+  // Technical background
+  fieldOfStudy: string;
+  skills: string[];
+  tools: string[];
+  experience: string;
+  links: Links;
+  // Looking for
+  lookingFor: LookingFor[];
+  lookingForNote: string;
+  // Volunteering
+  volunteering: Volunteering;
+  // Matching and the map
+  fields: string[];
+  freeTags: string[];
+  // Notifications
+  notify: NotifyPrefs;
+  seen: { announcementsAt: Date | null; projectsAt: Date | null };
+  lastDigestAt: Date | null;
+  /** Runtime only (from ADMIN_EMAILS), never trusted from the database. */
+  isAdmin: boolean;
+  hasPosted: boolean;
   lastSeenAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Profile photos live outside `users` so member lists stay light. */
+export interface PhotoDoc {
+  _id: ObjectId; // = userId
+  mime: "image/webp" | "image/jpeg";
+  data: import("mongodb").Binary;
+  updatedAt: Date;
+}
+
+export type ConnectStatus = "pending" | "accepted" | "declined";
+export interface ConnectRequestDoc {
+  _id: ObjectId;
+  from: ObjectId;
+  to: ObjectId;
+  /** Sorted pair of ids, so there is at most one pending request per pair. */
+  pairKey: string;
+  message: string;
+  status: ConnectStatus;
+  createdAt: Date;
+  decidedAt: Date | null;
+}
+
+export interface NotificationDoc {
+  _id: ObjectId;
+  userId: ObjectId;
+  kind: string;
+  text: string;
+  href: string;
+  read: boolean;
+  createdAt: Date;
+}
+
+export type ProposalStatus = "open" | "team_forming" | "in_progress" | "completed";
+export interface ProposalDoc {
+  _id: ObjectId;
+  proposedBy: ObjectId | null;
+  title: string;
+  problem: string;
+  idea: string;
+  peopleNeeded: { count: number; skills: string[] };
+  commitment: { hoursPerWeek: number | null; duration: string };
+  fields: string[];
+  tags: string[];
+  links: string[];
+  status: ProposalStatus;
+  acceptingMembers: boolean;
+  statusChangedAt: Date;
+  matchCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type MemberStatus = "invited" | "interested" | "accepted" | "declined" | "removed" | "left";
+export interface ProposalMemberDoc {
+  _id: ObjectId;
+  proposalId: ObjectId;
+  userId: ObjectId;
+  status: MemberStatus;
+  note: string;
+  invitedBy: ObjectId | null;
+  createdAt: Date;
+  decidedAt: Date | null;
+}
+
+export type ScholarshipStage = "applying" | "applied" | "rejected" | "accepted";
+export interface ScholarshipDoc {
+  _id: ObjectId;
+  userId: ObjectId;
+  name: string;
+  country: string;
+  link: string | null;
+  opportunityId: ObjectId | null;
+  stage: ScholarshipStage;
+  deadline: Date | null;
+  submittedAt: Date | null;
+  expectedResultAt: Date | null;
+  rejectedAt: Date | null;
+  lesson: string | null;
+  programme: string | null;
+  university: string | null;
+  startDate: Date | null;
+  rejectedVisibility: "team" | "members";
+  announceConsent: boolean;
+  announcedAt: Date | null;
+  /** Deadline reminders already sent (days before: 7, 1). */
+  remindersSent: number[];
+  history: { stage: ScholarshipStage; at: Date }[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type AnnouncementCategory = "programme" | "event" | "deadline" | "opportunity" | "win";
+export const REACTIONS = ["👍", "🎉", "❤️", "🙌", "💡"] as const;
+export type Reaction = (typeof REACTIONS)[number];
+export interface AnnouncementDoc {
+  _id: ObjectId;
+  authorId: ObjectId | null;
+  title: string;
+  body: string;
+  category: AnnouncementCategory;
+  link: string | null;
+  pinned: boolean;
+  pinnedUntil: Date | null;
+  reactionCounts: Record<Reaction, number>;
+  emailedAt: Date | null;
+  emailedCount: number;
+  scholarshipId: ObjectId | null;
+  createdAt: Date;
+  editedAt: Date | null;
+}
+export interface ReactionDoc {
+  _id: ObjectId;
+  announcementId: ObjectId;
+  userId: ObjectId;
+  emoji: Reaction;
+  createdAt: Date;
+}
+
+export interface ReportDoc {
+  _id: ObjectId;
+  kind: "proposal";
+  targetId: ObjectId;
+  reporterId: ObjectId | null;
+  reason: string;
+  resolved: boolean;
+  createdAt: Date;
 }
 
 export interface OpportunityDoc {
@@ -168,41 +325,99 @@ export interface MeDTO {
   email: string;
   name: string;
   photoUrl: string | null;
+  role: Role;
+  teamTitle: string | null;
+  batch: string | null;
+  batchLabel: string | null;
+  isTeam: boolean;
+  isAdmin: boolean;
   onboarded: boolean;
-  visibility: Visibility;
-  headline: string;
-  summary: string;
+  university: string;
+  city: string;
+  country: string;
+  whatsapp: string | null;
+  contactEmail: string | null;
+  fieldOfStudy: string;
+  skills: string[];
+  tools: string[];
+  experience: string;
+  links: Links;
+  lookingFor: LookingFor[];
+  lookingForNote: string;
+  volunteering: Volunteering;
   fields: string[];
   freeTags: string[];
-  targetRoles: string[];
-  preferredLocations: string[];
-  openToFrench: boolean;
-  skillsOffered: string[];
-  collaborateOn: string;
-  links: Links;
-  isAdmin: boolean;
+  notify: NotifyPrefs;
   hasPosted: boolean;
 }
 
-export interface PersonDTO {
+/** Light card for the directory and pickers. Never includes contacts. */
+export interface MemberCardDTO {
   id: string;
   name: string;
   photoUrl: string | null;
-  headline: string;
-  summary?: string;
+  role: Role;
+  teamTitle: string | null;
+  isAdmin: boolean;
+  batch: string | null;
+  batchLabel: string | null;
+  university: string;
+  city: string;
+  fieldOfStudy: string;
+  skills: string[];
+  lookingFor: LookingFor[];
+  volunteerOpen: boolean;
   fields: string[];
-  preferredLocations: string[];
-  links: Links;
-  open: boolean;
-  skillsOffered?: string[];
-  collaborateOn?: string;
   isMe: boolean;
+}
+
+export type ConnectState =
+  | { state: "self" }
+  | { state: "none" }
+  | { state: "outgoing"; requestId: string }
+  | { state: "incoming"; requestId: string; message: string }
+  | { state: "connected" }
+  | { state: "declined" };
+
+export interface MemberProfileDTO extends MemberCardDTO {
+  country: string;
+  tools: string[];
+  experience: string;
+  links: Links;
+  lookingForNote: string;
+  volunteering: Volunteering;
+  freeTags: string[];
+  /** Only for the owner, admins, and people with an accepted connect request. */
+  contacts: { whatsapp: string | null; email: string | null } | null;
+  connect: ConnectState;
+  joinedAt: string;
+}
+
+export interface ConnectRequestDTO {
+  id: string;
+  direction: "incoming" | "outgoing";
+  other: MiniUserDTO | null;
+  message: string;
+  status: ConnectStatus;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export type MiniUserDTO = { id: string; name: string; photoUrl: string | null };
+
+export interface NotificationDTO {
+  id: string;
+  kind: string;
+  text: string;
+  href: string;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface OpportunityDTO {
   id: string;
   url: string;
-  postedBy: { id: string; name: string; photoUrl: string | null } | null;
+  postedBy: MiniUserDTO | null;
   postedByMe: boolean;
   title: string;
   organization: string | null;

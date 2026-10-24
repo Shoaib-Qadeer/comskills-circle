@@ -16,7 +16,7 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from "d3-force";
-import { Code2, Crosshair, Globe, UserRound, List, Minus, Plus, Send, Sparkles, Waypoints, X, FileText, MapPin } from "lucide-react";
+import { Code2, Crosshair, Globe, UserRound, List, Minus, Plus, Send, Sparkles, Waypoints, X, MapPin } from "lucide-react";
 import type { ConstellationDTO } from "@/lib/types";
 import { getField } from "@/lib/taxonomy";
 import { firstName, initials } from "@/lib/client";
@@ -808,7 +808,6 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
             {Object.keys(links).length > 0 && (
               <div className="mt-6 flex flex-wrap gap-2">
                 {links.linkedin && <ExtLink href={links.linkedin} icon={UserRound} label="LinkedIn" />}
-                {links.cv && <ExtLink href={links.cv} icon={FileText} label="CV" />}
                 {links.portfolio && <ExtLink href={links.portfolio} icon={Globe} label="Website" />}
                 {links.github && <ExtLink href={links.github} icon={Code2} label="GitHub" />}
               </div>

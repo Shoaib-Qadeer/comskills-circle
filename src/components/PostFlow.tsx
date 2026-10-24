@@ -7,7 +7,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, motion } from "motion/react";
 import confetti from "canvas-confetti";
 import { ClipboardPaste, Link2, Search, Sparkles, Undo2, Check } from "lucide-react";
-import type { ExtractedDraft, PersonDTO } from "@/lib/types";
+import type { ExtractedDraft, MemberCardDTO } from "@/lib/types";
 import { api, ClientError, daysLeft, firstName, timeAgo } from "@/lib/client";
 import { CountUp } from "./bits";
 import { Avatar, Button, ErrorText, Input, Label, PageHeader, Panel, Skeleton, Textarea, cx } from "./ui";
@@ -283,10 +283,10 @@ export function PostFlow() {
 }
 
 function TagClassmates({ selected, onChange, note, onNote }: { selected: string[]; onChange: (v: string[]) => void; note: string; onNote: (v: string) => void }) {
-  const { data } = useSWR<{ people: PersonDTO[]; privateCount: number }>("/api/people");
+  const { data } = useSWR<{ items: MemberCardDTO[] }>("/api/members");
   const [q, setQ] = useState("");
-  const people = useMemo(() => (data?.people ?? []).filter((p) => !p.isMe), [data]);
-  const shown = people.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.headline.toLowerCase().includes(q.toLowerCase()));
+  const people = useMemo(() => (data?.items ?? []).filter((p) => !p.isMe), [data]);
+  const shown = people.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.fieldOfStudy.toLowerCase().includes(q.toLowerCase()));
   return (
     <Panel className="mt-6 p-5 sm:p-7">
       <h2 className="font-display text-lg font-semibold">Thought of someone?</h2>
@@ -296,7 +296,7 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
         {!data ? (
           <Skeleton className="h-10 w-full" />
         ) : people.length === 0 ? (
-          <p className="text-sm text-faint">No visible members yet.</p>
+          <p className="text-sm text-faint">No other members yet.</p>
         ) : (
           shown.map((p) => {
             const on = selected.includes(p.id);
@@ -317,7 +317,6 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
           })
         )}
       </div>
-      {data && data.privateCount > 0 && <p className="mt-3 text-xs text-faint">{data.privateCount} members keep their profiles private — they can still be matched automatically.</p>}
       <AnimatePresence>
         {selected.length > 0 && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">

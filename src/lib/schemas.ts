@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { isHttpUrl } from "./url";
+import { normalizeWhatsapp } from "./phone";
+import { containsContactDetails } from "./pii";
+import { LOOKING_FOR_VALUES, VOLUNTEER_AREAS, type LookingFor } from "./taxonomy";
 
 const httpUrl = z
   .string()
@@ -20,26 +23,82 @@ const isoDate = z
   .regex(/^\d{4}-\d{2}-\d{2}/, "use YYYY-MM-DD")
   .nullable();
 
-export const visibilitySchema = z.enum(["private", "class", "open"]);
 export const remoteSchema = z.enum(["onsite", "hybrid", "remote"]);
 export const oppTypeSchema = z.enum(["internship", "fellowship", "summer_school", "competition", "event", "job", "other"]);
 
+const freeChips = (max: number, len = 40) =>
+  z
+    .array(z.string().trim().min(1).max(len))
+    .max(max)
+    .transform((a) => Array.from(new Map(a.map((x) => [x.toLowerCase(), x])).values()));
+
+export const whatsappSchema = z
+  .string()
+  .trim()
+  .max(30)
+  .nullable()
+  .transform((v, ctx) => {
+    if (!v) return null;
+    const n = normalizeWhatsapp(v);
+    if (!n) {
+      ctx.addIssue({ code: "custom", message: "Enter a WhatsApp number like 0300 1234567 or +44 7700 900123" });
+      return z.NEVER;
+    }
+    return n;
+  });
+
+export const volunteeringSchema = z.object({
+  open: z.boolean(),
+  for: z.enum(["comskills", "other", "both"]).nullable(),
+  areas: z.array(z.enum(VOLUNTEER_AREAS)).max(VOLUNTEER_AREAS.length).transform((a) => Array.from(new Set(a))),
+  hoursPerMonth: z.number().int().min(0).max(200).nullable(),
+});
+
+export const notifySchema = z.object({
+  digest: z.enum(["weekly", "daily", "off"]),
+  instant: z.object({ interest: z.boolean(), teamUpdates: z.boolean(), connect: z.boolean(), pinned: z.boolean(), invites: z.boolean() }),
+});
+
+/** Text every member can read: no phone numbers or emails (those belong in the private contact fields). */
+const publicText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .refine((v) => !containsContactDetails(v), "Please don't put phone numbers or emails here. Add them under contacts: only people you connect with see those.");
+
 export const profileUpdateSchema = z
   .object({
-    visibility: visibilitySchema,
-    headline: z.string().trim().max(80),
-    summary: z.string().trim().max(800),
+    name: z.string().trim().min(2, "Enter your name").max(80),
+    university: z.string().trim().max(120),
+    city: z.string().trim().max(80),
+    country: z.string().trim().max(80),
+    whatsapp: whatsappSchema,
+    contactEmail: z.string().trim().toLowerCase().max(200).email("Enter a valid contact email").nullable().or(z.literal("").transform(() => null)),
+    fieldOfStudy: z.string().trim().max(120),
+    skills: freeChips(15),
+    tools: freeChips(15),
+    experience: publicText(1200),
+    links: z.object({ linkedin: optionalUrl, github: optionalUrl, portfolio: optionalUrl }),
+    lookingFor: z.array(z.enum(LOOKING_FOR_VALUES as [LookingFor, ...LookingFor[]])).max(5).transform((a) => Array.from(new Set(a))),
+    lookingForNote: publicText(400),
+    volunteering: volunteeringSchema,
     fields: shortList(6, 40),
-    freeTags: shortList(8, 40),
-    targetRoles: shortList(6, 60),
-    preferredLocations: shortList(8, 60),
-    openToFrench: z.boolean(),
-    skillsOffered: shortList(10, 40),
-    collaborateOn: z.string().trim().max(200),
-    links: z.object({ linkedin: optionalUrl, cv: optionalUrl, portfolio: optionalUrl, github: optionalUrl }),
+    freeTags: freeChips(8),
     onboarded: z.boolean(),
   })
   .partial();
+
+/** What must be filled in before onboarding can finish. */
+export function onboardingProblems(p: { university: string; city: string; fieldOfStudy: string; skills: string[]; fields: string[] }): string[] {
+  const out: string[] = [];
+  if (!p.university.trim()) out.push("Add your university.");
+  if (!p.city.trim()) out.push("Add your city.");
+  if (!p.fieldOfStudy.trim()) out.push("Add your field of study.");
+  if (!p.skills.length) out.push("Add at least one skill.");
+  if (!p.fields.length) out.push("Pick at least one field so we can match you.");
+  return out;
+}
 
 export const extractRequestSchema = z
   .object({
@@ -122,7 +181,6 @@ export const llmScoresSchema = z.object({
 export const llmProfileSchema = z.object({
   fields: z.array(z.string()).catch([]),
   freeTags: z.array(z.string()).catch([]),
-  targetRoles: z.array(z.string()).catch([]),
 });
 
 export const llmCoachSchema = z.object({

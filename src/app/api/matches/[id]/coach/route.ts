@@ -6,6 +6,7 @@ import { systemPrompt } from "@/lib/prompts";
 import { llmCoachSchema } from "@/lib/schemas";
 import { rateLimit } from "@/lib/ratelimit";
 import { getField } from "@/lib/taxonomy";
+import { profileForLlm } from "@/lib/matching";
 import type { CoachAdvice } from "@/lib/types";
 
 export const maxDuration = 45;
@@ -30,19 +31,9 @@ export const POST = route(async (req, ctx: IdCtx) => {
       feature: "coach",
       label: "coach",
       system: await systemPrompt("coach"),
-      // No name or email — only what the student wrote about their direction
+      // No name, email, phone, university or links — only skills and goals
       user: JSON.stringify({
-        student: {
-          headline: user.headline,
-          summary: user.summary,
-          fields: user.fields.map((f) => getField(f).label),
-          otherInterests: user.freeTags,
-          targetRoles: user.targetRoles,
-          preferredLocations: user.preferredLocations,
-          canHelpWith: user.skillsOffered,
-          openToFrench: user.openToFrench,
-          requiredInternshipMonths: 6,
-        },
+        student: profileForLlm(user, "me"),
         opportunity: {
           title: opp.title,
           organization: opp.organization,

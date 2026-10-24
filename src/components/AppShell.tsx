@@ -11,14 +11,14 @@ import { Avatar, cx } from "./ui";
 import { CircleMark } from "./bits";
 
 type Me = { name: string; photoUrl: string | null; hasPosted: boolean; isAdmin: boolean; email: string };
-type Notif = { unseenMatches: number; pendingApprovals?: number; total: number };
+type Notif = { unseenMatches: number; unread: number; pendingConnect: number; pendingApprovals?: number; total: number };
 
-type NavItem = { href: string; label: string; icon: typeof Bell; badge?: "matches" | "approvals" };
+type NavItem = { href: string; label: string; icon: typeof Bell; badge?: "matches" | "approvals" | "inbox" };
 const NAV: NavItem[] = [
   { href: "/matches", label: "Matches", icon: Sparkles, badge: "matches" as const },
   { href: "/opportunities", label: "Opportunities", icon: Compass },
-  { href: "/class", label: "Class", icon: Users },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/members", label: "Members", icon: Users },
+  { href: "/inbox", label: "Inbox", icon: Bell, badge: "inbox" as const },
 ];
 const ARCHIVE: NavItem = { href: "/archive", label: "Archive", icon: Archive };
 const ADMIN: NavItem = { href: "/admin", label: "Admin", icon: Shield, badge: "approvals" };
@@ -114,8 +114,8 @@ function AccountMenu({ me }: { me: Me }) {
 export function AppShell({ me, children }: { me: Me; children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: notif } = useSWR<Notif>("/api/notifications", { refreshInterval: 60_000 });
-  const count = (b?: "matches" | "approvals") =>
-    b === "matches" ? notif?.unseenMatches ?? 0 : b === "approvals" ? notif?.pendingApprovals ?? 0 : 0;
+  const count = (b?: "matches" | "approvals" | "inbox") =>
+    b === "inbox" ? (notif?.unread ?? 0) + (notif?.pendingConnect ?? 0) : b === "matches" ? notif?.unseenMatches ?? 0 : b === "approvals" ? notif?.pendingApprovals ?? 0 : 0;
   const sideNav = [...NAV, ARCHIVE, ...(me.isAdmin ? [ADMIN] : [])];
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href + "/")) || pathname === href;
   const posting = pathname.startsWith("/opportunities/new");
@@ -169,10 +169,10 @@ export function AppShell({ me, children }: { me: Me; children: React.ReactNode }
           <span className="font-display text-lg font-semibold">Comskills Circle</span>
         </Link>
         <div className="flex items-center gap-1">
-          <Link href="/matches" className="relative grid size-10 place-items-center rounded-full text-dim" aria-label={`Notifications: ${notif?.total ?? 0}`}>
+          <Link href="/inbox" className="relative grid size-11 place-items-center rounded-full text-dim" aria-label={`Inbox: ${count("inbox")} new`}>
             <Bell className="size-5" />
             <span className="absolute right-0.5 top-0.5">
-              <Badge n={notif?.total ?? 0} />
+              <Badge n={count("inbox")} />
             </span>
           </Link>
           <div className="w-12">

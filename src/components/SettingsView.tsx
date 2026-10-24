@@ -1,21 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import useSWR from "swr";
-import { signOut } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Download, Moon, RefreshCw, Sun } from "lucide-react";
-import type { MatchDTO, MeDTO } from "@/lib/types";
-import { SUGGESTED_LOCATIONS, SUGGESTED_ROLES, SUGGESTED_SKILLS } from "@/lib/taxonomy";
+import type { MeDTO, NotifyPrefs } from "@/lib/types";
 import { api, fetcher } from "@/lib/client";
-import { Button, ChipInput, ErrorText, Input, Label, Modal, PageHeader, Panel, Skeleton, Textarea, Toggle } from "./ui";
-import { draftFromMe, FieldPicker, LinksFields, linksValid, ProfilePreview, VisibilityPicker, type ProfileDraft } from "./ProfileParts";
+import { passwordProblem } from "@/lib/password-rules";
+import { Button, ErrorText, Input, Modal, PageHeader, Panel, Skeleton, Tag, Toggle, cx } from "./ui";
+import {
+  BasicsFields,
+  basicsProblems,
+  draftFromMe,
+  draftToPatch,
+  LookingForFields,
+  lookingForProblems,
+  PhotoPicker,
+  TechnicalFields,
+  technicalProblems,
+  VolunteeringFields,
+  type ProfileDraft,
+} from "./ProfileParts";
+import { PasswordField } from "./auth/AuthParts";
 import { useTheme } from "./AppShell";
 
-function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function Section({ id, title, description, children }: { id?: string; title: string; description?: string; children: React.ReactNode }) {
   return (
-    <Panel as="section" className="p-5 sm:p-7">
-      <h2 className="font-display text-xl font-semibold">{title}</h2>
+    <Panel as="section" className="scroll-mt-20 p-4 sm:p-7">
+      <h2 id={id} className="font-display text-xl font-semibold">
+        {title}
+      </h2>
       {description && <p className="mt-1 text-sm text-dim">{description}</p>}
       <div className="mt-6">{children}</div>
     </Panel>
@@ -23,17 +39,20 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 export function SettingsView() {
-  const { data: me, mutate } = useSWR<MeDTO>("/api/me");
+  const { data: me, mutate, error } = useSWR<MeDTO>("/api/me");
   const [d, setD] = useState<ProfileDraft | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [rematching, setRematching] = useState(false);
   const [del, setDel] = useState(false);
-  const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    if (me && !d) setD(draftFromMe(me));
+    if (me && !d) {
+      setD(draftFromMe(me));
+      setPhotoUrl(me.photoUrl);
+    }
   }, [me, d]);
 
+  if (error && !me) return <p className="rounded-2xl border border-ember/40 p-5 text-ember">Couldn't load your settings. Check your connection and refresh.</p>;
   if (!me || !d) {
     return (
       <div className="space-y-6">
@@ -44,155 +63,87 @@ export function SettingsView() {
   }
   const set = <K extends keyof ProfileDraft>(k: K, v: ProfileDraft[K]) => setD((p) => (p ? { ...p, [k]: v } : p));
   const dirty = JSON.stringify(d) !== JSON.stringify(draftFromMe(me));
-  const valid = d.fields.length > 0 && d.headline.trim().length >= 3 && linksValid(d.links);
+  const problem = basicsProblems(d) || technicalProblems(d) || lookingForProblems(d);
 
   async function save() {
+    if (problem) return toast.error(problem);
     setSaving(true);
     try {
-      const updated = await api<MeDTO>("/api/me", "PATCH", {
-        ...d,
-        links: Object.fromEntries(Object.entries(d!.links).filter(([, v]) => v)),
-      });
+      const updated = await api<MeDTO>("/api/me", "PATCH", draftToPatch(d!));
       mutate(updated, { revalidate: false });
       setD(draftFromMe(updated));
       toast.success("Saved. Your matches will refresh in a moment.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save");
+      toast.error(e instanceof Error ? e.message : "Could not save. Try again.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function rematch() {
-    setRematching(true);
-    try {
-      const r = await api<{ count: number }>("/api/me/rematch", "POST");
-      toast.success(`Matches refreshed — ${r.count} active`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not refresh");
-    } finally {
-      setRematching(false);
-    }
-  }
-
-  async function download() {
-    try {
-      const [profile, matches] = await Promise.all([fetcher<MeDTO>("/api/me"), fetcher<{ items: MatchDTO[] }>("/api/matches?filter=all")]);
-      const blob = new Blob(
-        [JSON.stringify({ exportedAt: new Date().toISOString(), profile, matches: matches.items, }, null, 2)],
-        { type: "application/json" },
-      );
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "my-data.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch {
-      toast.error("Could not export your data");
-    }
-  }
-
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Settings" subtitle="Your profile drives your matches. Changes re-run matching automatically." />
+    <div className="mx-auto max-w-3xl space-y-5">
+      <PageHeader
+        title="Settings"
+        subtitle="Your profile drives your matches. Changes re-run matching automatically."
+        action={
+          <Link href={`/members/${me.id}`} className="inline-flex h-11 items-center rounded-full border border-line-strong px-4 text-sm hover:bg-raised-2 sm:h-10">
+            View my profile
+          </Link>
+        }
+      />
 
-      <Section title="Who can see your profile">
-        <div className="grid gap-5 md:grid-cols-[1.2fr_1fr]">
-          <VisibilityPicker value={d.visibility} onChange={(v) => set("visibility", v)} />
-          <ProfilePreview d={d} name={me.name} photoUrl={me.photoUrl} />
+      <Section title="Profile">
+        <PhotoPicker
+          name={d.name}
+          photoUrl={photoUrl}
+          onChange={(u) => {
+            setPhotoUrl(u);
+            mutate();
+          }}
+        />
+        <div className="mt-5 flex flex-wrap gap-2 text-sm text-dim">
+          {me.isAdmin && <Tag tone="violet">Admin</Tag>}
+          {me.role === "team" ? <Tag tone="violet">Team{me.teamTitle ? ` · ${me.teamTitle}` : ""}</Tag> : <Tag>Participant</Tag>}
+          {me.batchLabel && <Tag>{me.batchLabel}</Tag>}
+          <span className="text-xs text-faint">Role and batch are set by the Comskills team.</span>
         </div>
       </Section>
-
-      <Section title="Your direction">
-        <div className="space-y-6">
-          <div>
-            <Label htmlFor="s-headline" hint={`${d.headline.length}/80`}>
-              Headline
-            </Label>
-            <Input id="s-headline" maxLength={80} value={d.headline} onChange={(e) => set("headline", e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="s-summary" hint={`${d.summary.length}/800`}>
-              Where you’re heading
-            </Label>
-            <Textarea id="s-summary" rows={5} maxLength={800} value={d.summary} onChange={(e) => set("summary", e.target.value)} />
-          </div>
-          <div>
-            <Label>Fields</Label>
-            <FieldPicker value={d.fields} onChange={(v) => set("fields", v)} headline={d.headline} summary={d.summary} />
-          </div>
-        </div>
+      <Section title="The basics">
+        <BasicsFields d={d} set={set} accountEmail={me.email} />
+      </Section>
+      <Section title="Technical background">
+        <TechnicalFields d={d} set={set} />
+      </Section>
+      <Section title="What you're looking for">
+        <LookingForFields d={d} set={set} />
+      </Section>
+      <Section title="Volunteering">
+        <VolunteeringFields d={d} set={set} />
       </Section>
 
-      <Section title="Practicalities">
-        <div className="space-y-6">
-          <div>
-            <Label>Kinds of roles</Label>
-            <ChipInput values={d.targetRoles} onChange={(v) => set("targetRoles", v)} suggestions={SUGGESTED_ROLES} max={6} />
-          </div>
-          <div>
-            <Label>Where</Label>
-            <ChipInput values={d.preferredLocations} onChange={(v) => set("preferredLocations", v)} suggestions={SUGGESTED_LOCATIONS} max={8} />
-          </div>
-          <Toggle
-            checked={d.openToFrench}
-            onChange={(v) => set("openToFrench", v)}
-            label="I'm open to internships in French"
-            description="If off, roles that require French won't be matched to you."
-          />
-        </div>
-      </Section>
+      <NotificationsSection me={me} onSaved={(notify) => mutate({ ...me, notify }, { revalidate: false })} />
+      <PasswordSection email={me.email} />
+      <AppSection />
 
-      <Section title="Links & help">
-        <div className="space-y-6">
-          <LinksFields links={d.links} onChange={(l) => set("links", l)} />
-          <div>
-            <Label>I can help classmates with</Label>
-            <ChipInput values={d.skillsOffered} onChange={(v) => set("skillsOffered", v)} suggestions={SUGGESTED_SKILLS} max={10} />
-          </div>
-          {d.visibility === "open" && (
-            <div>
-              <Label htmlFor="s-collab" hint={`${d.collaborateOn.length}/200`}>
-                Looking to collaborate on
-              </Label>
-              <Input id="s-collab" maxLength={200} value={d.collaborateOn} onChange={(e) => set("collaborateOn", e.target.value)} />
-            </div>
-          )}
-        </div>
-      </Section>
-
-      <Section title="App">
-        <div className="flex flex-wrap gap-3">
-          <Button variant="ghost" onClick={toggle}>
-            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />} {theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          </Button>
-          <Button variant="ghost" onClick={rematch} loading={rematching}>
-            <RefreshCw className="size-4" /> Refresh my matches
-          </Button>
-          <Button variant="ghost" onClick={download}>
-            <Download className="size-4" /> Download my data
-          </Button>
-        </div>
-      </Section>
-
-      <Panel as="section" className="border-ember/30 p-5 sm:p-7">
+      <Panel as="section" className="border-ember/30 p-4 sm:p-7">
         <h2 className="font-display text-xl font-semibold text-ember">Delete my account</h2>
         <p className="mt-2 text-sm text-dim">
-          Removes your profile, matches, the connections you added and all intro requests, immediately. Opportunities you shared stay on the board for the class, shown as shared by a former member.
+          Removes your profile, photo, matches, connect requests, scholarship tracker, the projects you proposed and your place in other projects, immediately. Opportunities you shared stay for the community, shown as shared by a former member.
         </p>
-        <Button variant="danger" className="mt-5" onClick={() => setDel(true)}>
+        <Button variant="danger" className="mt-5" onClick={() => setDel(true)} disabled={me.isAdmin}>
           Delete my account
         </Button>
+        {me.isAdmin && <p className="mt-2 text-xs text-faint">Admin accounts can't be deleted here.</p>}
       </Panel>
 
       {dirty && (
         <div className="sticky bottom-20 z-20 flex justify-end lg:bottom-6">
-          <div className="flex items-center gap-3 rounded-full border border-line-strong bg-raised px-4 py-2 shadow-2xl">
+          <div className="flex items-center gap-2 rounded-full border border-line-strong bg-raised py-1.5 pl-4 pr-1.5 shadow-2xl">
             <span className="text-sm text-dim">Unsaved changes</span>
             <Button variant="quiet" size="sm" onClick={() => setD(draftFromMe(me))}>
               Discard
             </Button>
-            <Button size="sm" loading={saving} disabled={!valid} onClick={save}>
+            <Button size="sm" loading={saving} onClick={save}>
               Save
             </Button>
           </div>
@@ -201,6 +152,146 @@ export function SettingsView() {
 
       <DeleteModal open={del} onClose={() => setDel(false)} />
     </div>
+  );
+}
+
+const INSTANT_LABELS: { k: keyof NotifyPrefs["instant"]; label: string; description: string }[] = [
+  { k: "interest", label: "Someone is interested in my project", description: "When a member clicks “I'm interested” on a project you proposed." },
+  { k: "teamUpdates", label: "Project team updates", description: "When you're accepted into a project, or its status changes." },
+  { k: "invites", label: "Project invitations", description: "When a proposer invites you to join." },
+  { k: "connect", label: "Connect requests", description: "When someone asks to connect, or accepts your request." },
+  { k: "pinned", label: "Important announcements", description: "Pinned news the team chooses to email to everyone." },
+];
+
+function NotificationsSection({ me, onSaved }: { me: MeDTO; onSaved: (n: NotifyPrefs) => void }) {
+  const [n, setN] = useState<NotifyPrefs>(me.notify);
+  const [busy, setBusy] = useState(false);
+  async function save(next: NotifyPrefs) {
+    const prev = n;
+    setN(next);
+    setBusy(true);
+    try {
+      await api("/api/me/notify", "PUT", next);
+      onSaved(next);
+    } catch (e) {
+      setN(prev);
+      toast.error(e instanceof Error ? e.message : "Could not save. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Section id="notifications" title="Email notifications" description="You always see everything in the app. These only control emails.">
+      <p className="mb-2 text-sm font-medium">Summary email</p>
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Summary email">
+        {(["weekly", "daily", "off"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={n.digest === v}
+            disabled={busy}
+            onClick={() => save({ ...n, digest: v })}
+            className={cx("h-11 rounded-full border px-4 text-sm capitalize sm:h-10", n.digest === v ? "border-brass bg-brass/15 text-star" : "border-line-strong text-dim hover:text-star")}
+          >
+            {v === "off" ? "Off" : v === "weekly" ? "Weekly (Monday)" : "Daily"}
+          </button>
+        ))}
+      </div>
+      <p className="mb-3 mt-7 text-sm font-medium">Instant emails</p>
+      <div className="space-y-4">
+        {INSTANT_LABELS.map((i) => (
+          <Toggle key={i.k} checked={n.instant[i.k]} onChange={(v) => save({ ...n, instant: { ...n.instant, [i.k]: v } })} label={i.label} description={i.description} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function PasswordSection({ email }: { email: string }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    const p = passwordProblem(next);
+    if (!current) return setErr("Enter your current password.");
+    if (p) return setErr(p);
+    setBusy(true);
+    try {
+      const r = await api<{ token: string }>("/api/me/password", "POST", { current, next });
+      // Every other device is now signed out; sign this one back in.
+      await signIn("credentials", { email, oneTimeToken: r.token, redirect: false });
+      setCurrent("");
+      setNext("");
+      toast.success("Password changed. Your other devices were signed out.");
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Could not change the password.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Section title="Password" description="Changing it signs you out on every other device.">
+      <form onSubmit={submit} className="max-w-md space-y-4" noValidate>
+        <PasswordField id="s-cur" label="Current password" value={current} onChange={setCurrent} autoComplete="current-password" />
+        <PasswordField id="s-new" label="New password" value={next} onChange={setNext} autoComplete="new-password" showStrength />
+        <ErrorText>{err}</ErrorText>
+        <Button type="submit" loading={busy}>
+          Change password
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
+function AppSection() {
+  const { theme, toggle } = useTheme();
+  const [rematching, setRematching] = useState(false);
+  async function rematch() {
+    setRematching(true);
+    try {
+      const r = await api<{ count: number }>("/api/me/rematch", "POST");
+      toast.success(`Matches refreshed: ${r.count} for you right now.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not refresh.");
+    } finally {
+      setRematching(false);
+    }
+  }
+  async function download() {
+    try {
+      const profile = await fetcher<MeDTO>("/api/me");
+      const matches = await fetcher<{ items: unknown[] }>("/api/matches?filter=all").catch(() => ({ items: [] }));
+      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), profile, matches: matches.items }, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "comskills-circle-my-data.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error("Could not export your data.");
+    }
+  }
+  return (
+    <Section title="App">
+      <div className="flex flex-wrap gap-3">
+        <Button variant="ghost" onClick={toggle}>
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />} {theme === "dark" ? "Light theme" : "Dark theme"}
+        </Button>
+        <Button variant="ghost" onClick={rematch} loading={rematching}>
+          <RefreshCw className="size-4" /> Refresh my matches
+        </Button>
+        <Button variant="ghost" onClick={download}>
+          <Download className="size-4" /> Download my data
+        </Button>
+        <Button variant="quiet" onClick={() => signOut({ callbackUrl: "/" })}>
+          Sign out
+        </Button>
+      </div>
+    </Section>
   );
 }
 
@@ -215,14 +306,14 @@ function DeleteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
       await api("/api/me", "DELETE", { confirm: "DELETE" });
       await signOut({ callbackUrl: "/" });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not delete");
+      setErr(e instanceof Error ? e.message : "Could not delete. Try again.");
       setBusy(false);
     }
   }
   return (
     <Modal open={open} onClose={onClose} title="Delete your account?">
-      <p className="text-sm text-dim">This can’t be undone. Type DELETE to confirm.</p>
-      <Input className="mt-4" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type DELETE to confirm" autoFocus />
+      <p className="text-sm text-dim">This can't be undone. Type DELETE to confirm.</p>
+      <Input className="mt-4" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type DELETE to confirm" autoFocus autoCapitalize="characters" />
       <ErrorText>{err}</ErrorText>
       <div className="mt-6 flex justify-end gap-2">
         <Button variant="quiet" onClick={onClose}>

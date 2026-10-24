@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 import { getField } from "@/lib/taxonomy";
@@ -21,7 +21,8 @@ const btnVariants: Record<BtnVariant, string> = {
   quiet: "text-dim hover:text-star hover:bg-raised-2",
   danger: "bg-ember text-white hover:brightness-110",
 };
-const btnSizes = { sm: "h-8 px-3 text-sm", md: "h-10 px-4 text-sm", lg: "h-12 px-6 text-base" };
+// Phones get 44 px targets; desktops keep the compact sizes.
+const btnSizes = { sm: "h-10 px-3.5 text-sm sm:h-8 sm:px-3", md: "h-11 px-4 text-sm sm:h-10", lg: "h-12 px-6 text-base" };
 
 export const Button = forwardRef<
   HTMLButtonElement,
@@ -81,8 +82,9 @@ export function PageHeader({ title, subtitle, action }: { title: ReactNode; subt
 
 /* ---------------- Form controls ---------------- */
 
+// 16 px text on phones stops browsers zooming into inputs
 const fieldBase =
-  "w-full rounded-[var(--radius-field)] border border-line-strong bg-night-2 px-3.5 text-star placeholder:text-faint transition-colors focus:border-brass focus:outline-none focus:ring-2 focus:ring-[var(--glow)]";
+  "w-full rounded-[var(--radius-field)] border border-line-strong bg-night-2 px-3.5 text-base text-star placeholder:text-faint transition-colors focus:border-brass focus:outline-none focus:ring-2 focus:ring-[var(--glow)] sm:text-sm";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(function Input(
   { className, invalid, ...rest },
@@ -111,18 +113,17 @@ export function Toggle({ checked, onChange, label, description }: { checked: boo
   const id = useId();
   return (
     <div className="flex items-start justify-between gap-4">
-      <div>
-        <label htmlFor={id} className="text-sm font-medium">
-          {label}
-        </label>
-        {description && <p className="mt-0.5 text-sm text-dim">{description}</p>}
-      </div>
+      <label htmlFor={id} className="min-h-11 flex-1 cursor-pointer">
+        <span className="block text-sm font-medium">{label}</span>
+        {description && <span className="mt-0.5 block text-sm text-dim">{description}</span>}
+      </label>
       <button
         id={id}
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={cx("relative h-7 w-12 shrink-0 rounded-full border transition-colors", checked ? "border-brass bg-brass" : "border-line-strong bg-night-2")}
+        type="button"
+        className={cx("relative mt-1 h-7 w-12 shrink-0 rounded-full border transition-colors", checked ? "border-brass bg-brass" : "border-line-strong bg-night-2")}
       >
         <motion.span
           animate={{ x: checked ? 20 : 0 }}
@@ -153,7 +154,7 @@ export function FieldChip({
   const f = getField(slug);
   const cls = cx(
     "inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap transition-colors",
-    size === "sm" ? "h-6 px-2 text-xs" : "h-8 px-3 text-sm",
+    size === "sm" ? "h-7 px-2.5 text-xs" : "h-10 px-3.5 text-sm sm:h-8 sm:px-3",
     ghost && "border-dashed",
   );
   const style = selected || !onClick
@@ -225,10 +226,10 @@ export function ChipInput({
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="inline-flex h-8 items-center gap-1 rounded-full border border-brass/40 bg-brass/10 pl-3 pr-1 text-sm"
+              className="inline-flex h-10 items-center gap-1 rounded-full border border-brass/40 bg-brass/10 pl-3.5 pr-1 text-sm sm:h-8 sm:pl-3"
             >
               {v}
-              <button type="button" aria-label={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))} className="grid size-6 place-items-center rounded-full text-dim hover:bg-raised-2 hover:text-star">
+              <button type="button" aria-label={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))} className="grid size-8 place-items-center rounded-full text-dim hover:bg-raised-2 hover:text-star sm:size-6">
                 <X className="size-3.5" />
               </button>
             </motion.span>
@@ -238,7 +239,7 @@ export function ChipInput({
           <input
             ref={ref}
             placeholder={placeholder || "Type and press Enter"}
-            className="h-8 min-w-40 flex-1 bg-transparent px-1 text-sm placeholder:text-faint focus:outline-none"
+            className="h-10 min-w-40 flex-1 bg-transparent px-1 text-base placeholder:text-faint focus:outline-none sm:h-8 sm:text-sm"
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === ",") {
                 e.preventDefault();
@@ -260,7 +261,7 @@ export function ChipInput({
       {remaining.length > 0 && values.length < max && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {remaining.map((s) => (
-            <button key={s} type="button" onClick={() => add(s)} className="h-7 rounded-full border border-dashed border-line-strong px-2.5 text-xs text-dim hover:border-brass/60 hover:text-star">
+            <button key={s} type="button" onClick={() => add(s)} className="h-9 rounded-full border border-dashed border-line-strong px-3 text-sm text-dim hover:border-brass/60 hover:text-star sm:h-7 sm:px-2.5 sm:text-xs">
               + {s}
             </button>
           ))}
@@ -295,7 +296,7 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={cx("relative h-8 rounded-full px-3.5 text-sm transition-colors", active ? "text-brass-ink" : "text-dim hover:text-star")}
+            className={cx("relative h-10 whitespace-nowrap rounded-full px-3.5 text-sm transition-colors sm:h-8", active ? "text-brass-ink" : "text-dim hover:text-star")}
           >
             {active && <motion.span layoutId={`seg-${id}`} className="absolute inset-0 rounded-full bg-brass" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
             <span className="relative flex items-center gap-1.5">
@@ -312,11 +313,26 @@ export function Segmented<T extends string>({
 /* ---------------- Avatar ---------------- */
 
 export function Avatar({ name, src, size = 36, ring }: { name: string; src?: string | null; size?: number; ring?: "brass" | "aurora" }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
   const style = { width: size, height: size };
   const ringCls = ring === "brass" ? "ring-2 ring-brass ring-offset-2 ring-offset-night" : ring === "aurora" ? "ring-2 ring-aurora/70" : "ring-1 ring-line-strong";
-  if (src)
+  if (src && !failed)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" referrerPolicy="no-referrer" style={style} className={cx("shrink-0 rounded-full object-cover", ringCls)} />;
+    return (
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        style={style}
+        className={cx("shrink-0 rounded-full bg-raised-2 object-cover", ringCls)}
+      />
+    );
   return (
     <span style={{ ...style, fontSize: size * 0.38 }} className={cx("grid shrink-0 place-items-center rounded-full bg-raised-2 font-medium text-dim", ringCls)} aria-hidden>
       {initials(name)}
@@ -351,13 +367,13 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 30, opacity: 0, scale: 0.98 }}
             className={cx(
-              "relative max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-line-strong bg-raised p-6 shadow-2xl sm:rounded-[28px]",
+              "relative max-h-[92dvh] w-full overflow-y-auto rounded-t-[28px] border border-line-strong bg-raised p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[28px] sm:p-6",
               wide ? "sm:max-w-2xl" : "sm:max-w-lg",
             )}
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <h2 className="font-display text-xl font-semibold">{title}</h2>
-              <button onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-full text-dim hover:bg-raised-2 hover:text-star">
+              <button onClick={onClose} aria-label="Close" className="-mr-2 -mt-2 grid size-11 place-items-center rounded-full text-dim hover:bg-raised-2 hover:text-star">
                 <X className="size-4" />
               </button>
             </div>

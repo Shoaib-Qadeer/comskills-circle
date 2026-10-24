@@ -5,23 +5,28 @@ import { systemPrompt } from "./prompts";
 import { getSettings } from "./settings";
 import { ACTIVE_MEMBER } from "./access";
 import { llmScoresSchema } from "./schemas";
-import { fallbackScore } from "./fallback-match";
+import { fallbackScore, type ItemLike } from "./fallback-match";
+import { scrubForLlm } from "./pii";
 import { getField } from "./taxonomy";
 import type { MatchDoc, OpportunityDoc, UserDoc } from "./types";
 
 
 type Scored = { score: number; reason: string; basic: boolean };
 
-/** Only what the matcher needs — never names or emails. */
-function profileForLlm(u: UserDoc, id: string) {
+/** Only what the matcher needs — never names, emails, phone numbers, universities or links. */
+export function profileForLlm(u: UserDoc, id: string) {
+  const who = { name: u.name, email: u.email, university: u.university };
   return {
     id,
-    headline: u.headline,
-    summary: u.summary.slice(0, 800),
-    fields: u.fields.map((f) => getField(f).label),
-    otherInterests: u.freeTags,
-    targetRoles: u.targetRoles,
-    preferredLocations: u.preferredLocations,
+    fieldOfStudy: scrubForLlm(u.fieldOfStudy ?? "", who),
+    skills: u.skills ?? [],
+    tools: u.tools ?? [],
+    experience: scrubForLlm((u.experience ?? "").slice(0, 600), who),
+    lookingFor: u.lookingFor ?? [],
+    lookingForNote: scrubForLlm((u.lookingForNote ?? "").slice(0, 300), who),
+    fields: (u.fields ?? []).map((f) => getField(f).label),
+    otherInterests: u.freeTags ?? [],
+    openToVolunteer: Boolean(u.volunteering?.open),
   };
 }
 
@@ -41,10 +46,13 @@ function oppForLlm(o: OpportunityDoc, id?: string) {
   };
 }
 
-/** French-required roles are only auto-matched to people who said they're open to French. */
-export function passesHardFilters(u: UserDoc, o: OpportunityDoc): boolean {
-  if (o.frenchRequired === true && !u.openToFrench) return false;
+/** No hard filters for Comskills (the French rule is gone); kept as a hook. */
+export function passesHardFilters(_u: UserDoc, _o: OpportunityDoc): boolean {
   return true;
+}
+
+function oppAsItem(o: OpportunityDoc): ItemLike {
+  return { kind: "opportunity", fields: o.fields, tags: o.tags, title: o.title, summary: o.summary, type: o.type };
 }
 
 function upsertOps(
@@ -124,7 +132,7 @@ export async function matchOpportunity(opportunityId: ObjectId): Promise<number>
     }
     // Fallback for anyone the LLM didn't score
     for (const u of eligible) {
-      if (!scores.has(String(u._id))) scores.set(String(u._id), { ...fallbackScore(u, opp), basic: true });
+      if (!scores.has(String(u._id))) scores.set(String(u._id), { ...fallbackScore(u, oppAsItem(opp)), basic: true });
     }
   }
 
@@ -198,7 +206,7 @@ export async function matchProfile(userId: ObjectId): Promise<number> {
     );
   }
   for (const o of eligible) {
-    if (!scores.has(String(o._id))) scores.set(String(o._id), { ...fallbackScore(user, o), basic: true });
+    if (!scores.has(String(o._id))) scores.set(String(o._id), { ...fallbackScore(user, oppAsItem(o)), basic: true });
   }
 
   const ops: AnyBulkWriteOperation<MatchDoc>[] = [];

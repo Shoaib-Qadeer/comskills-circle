@@ -9,6 +9,15 @@ import type {
   OneTimeTokenDoc,
   EmailLogDoc,
   LlmLogDoc,
+  PhotoDoc,
+  ConnectRequestDoc,
+  NotificationDoc,
+  ProposalDoc,
+  ProposalMemberDoc,
+  ScholarshipDoc,
+  AnnouncementDoc,
+  ReactionDoc,
+  ReportDoc,
 } from "./types";
 
 // Cache the client across hot reloads and serverless invocations.
@@ -41,6 +50,15 @@ export async function collections() {
     oneTimeTokens: db.collection<OneTimeTokenDoc>("oneTimeTokens"),
     emailLog: db.collection<EmailLogDoc>("emailLog"),
     llmLog: db.collection<LlmLogDoc>("llmLog"),
+    photos: db.collection<PhotoDoc>("photos"),
+    connectRequests: db.collection<ConnectRequestDoc>("connectRequests"),
+    notifications: db.collection<NotificationDoc>("notifications"),
+    proposals: db.collection<ProposalDoc>("proposals"),
+    proposalMembers: db.collection<ProposalMemberDoc>("proposalMembers"),
+    scholarships: db.collection<ScholarshipDoc>("scholarships"),
+    announcements: db.collection<AnnouncementDoc>("announcements"),
+    reactions: db.collection<ReactionDoc>("reactions"),
+    reports: db.collection<ReportDoc>("reports"),
   };
 }
 
@@ -49,7 +67,7 @@ let indexesEnsured = false;
 export async function ensureIndexes() {
   if (indexesEnsured) return;
   const c = await collections();
-  await Promise.all([
+  const results = await Promise.allSettled([
     c.users.createIndex({ email: 1 }, { unique: true }),
     c.opportunities.createIndex({ urlKey: 1 }, { unique: true, partialFilterExpression: { urlKey: { $type: "string" } } }),
     c.opportunities.createIndex({ createdAt: -1 }),
@@ -62,7 +80,24 @@ export async function ensureIndexes() {
     c.emailCodes.createIndex({ email: 1, purpose: 1 }),
     c.oneTimeTokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     c.emailLog.createIndex({ at: 1 }, { expireAfterSeconds: 30 * 24 * 3600 }),
+    c.users.createIndex({ onboarded: 1, status: 1 }),
+    c.connectRequests.createIndex({ pairKey: 1 }, { unique: true, partialFilterExpression: { status: "pending" } }),
+    c.connectRequests.createIndex({ to: 1, status: 1 }),
+    c.connectRequests.createIndex({ from: 1, status: 1 }),
+    c.notifications.createIndex({ userId: 1, createdAt: -1 }),
+    c.notifications.createIndex({ createdAt: 1 }, { expireAfterSeconds: 120 * 24 * 3600 }),
+    c.proposals.createIndex({ status: 1, createdAt: -1 }),
+    c.proposals.createIndex({ proposedBy: 1 }),
+    c.proposalMembers.createIndex({ proposalId: 1, userId: 1 }, { unique: true }),
+    c.proposalMembers.createIndex({ userId: 1, status: 1 }),
+    c.scholarships.createIndex({ userId: 1, updatedAt: -1 }),
+    c.scholarships.createIndex({ stage: 1, deadline: 1 }),
+    c.announcements.createIndex({ pinned: -1, createdAt: -1 }),
+    c.reactions.createIndex({ announcementId: 1, userId: 1, emoji: 1 }, { unique: true }),
+    c.reports.createIndex({ resolved: 1, createdAt: -1 }),
   ]);
+  // One bad index (e.g. a conflicting old one) shouldn't stop sign-in; log it for the admin instead.
+  results.forEach((r) => r.status === "rejected" && console.error("[db] index failed", r.reason));
   indexesEnsured = true;
 }
 

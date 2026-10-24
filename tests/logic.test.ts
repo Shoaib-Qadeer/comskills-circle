@@ -65,13 +65,19 @@ describe("warnings", () => {
 });
 
 describe("fallback matcher", () => {
-  const opp = { fields: ["digital-health", "ai-ml"], tags: ["nlp"], title: "ML intern in digital health", summary: "Build models.", location: "Paris", remote: "hybrid" };
-  it("scores a digital-health person high and an ecology-only person low", () => {
-    const dh = fallbackScore({ fields: ["digital-health", "ai-ml"], targetRoles: ["ML intern"], preferredLocations: ["Paris"] }, opp);
-    const eco = fallbackScore({ fields: ["ecology"], targetRoles: ["field work"], preferredLocations: ["Lyon"] }, opp);
-    expect(dh.score).toBeGreaterThanOrEqual(60);
-    expect(dh.reason).toContain("Digital Health");
-    expect(eco.score).toBeLessThan(60);
+  const opp = { kind: "opportunity" as const, type: "internship", fields: ["bioinformatics", "ai-ml"], tags: ["genomics"], title: "ML intern in genomics", summary: "Build Python models for sequencing data." };
+  it("scores a bioinformatics person with Python high and an unrelated person low", () => {
+    const fit = fallbackScore({ fields: ["bioinformatics", "ai-ml"], skills: ["Python"], lookingFor: ["internship"] }, opp);
+    const other = fallbackScore({ fields: ["policy-law"], skills: ["Public speaking"], lookingFor: ["job"] }, opp);
+    expect(fit.score).toBeGreaterThanOrEqual(60);
+    expect(fit.reason).toContain("Python");
+    expect(other.score).toBeLessThan(60);
+  });
+  it("gives proposals a bonus for people looking for collaborators", () => {
+    const prop = { kind: "proposal" as const, fields: ["public-health"], tags: [], skills: ["Data analysis"], title: "Dengue dashboard", summary: "Track cases." };
+    const a = fallbackScore({ fields: ["public-health"], skills: ["Data analysis"], lookingFor: ["collaborators"] }, prop);
+    const b = fallbackScore({ fields: ["public-health"], skills: ["Data analysis"], lookingFor: [] }, prop);
+    expect(a.score - b.score).toBe(20);
   });
 });
 
