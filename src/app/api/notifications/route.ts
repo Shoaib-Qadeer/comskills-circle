@@ -29,5 +29,7 @@ export const GET = route(async (req) => {
     propIds.length ? c.proposals.countDocuments({ _id: { $in: propIds }, status: { $ne: "completed" } }) : 0,
   ]);
   const unseenMatches = openOpps + openProps;
-  return json({ unread, pendingConnect, unseenMatches, unseenProjectMatches: openProps, pendingApprovals, total: unread + pendingApprovals });
+  const seenAt = user.seen?.announcementsAt ?? null;
+  const unreadNews = await c.announcements.countDocuments({ ...(seenAt ? { createdAt: { $gt: seenAt } } : {}), authorId: { $ne: user._id } });
+  return json({ unread, pendingConnect, unseenMatches, unseenProjectMatches: openProps, unreadNews, pendingApprovals, total: unread + pendingApprovals });
 });
