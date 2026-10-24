@@ -6,22 +6,26 @@ import type { Warning } from "@/lib/types";
 import { cx, Tag } from "./ui";
 import { daysLeft } from "@/lib/client";
 
-/** The compass rose mark: a needle that points brass-north. */
-export function CompassMark({ size = 28, spin = false }: { size?: number; spin?: boolean }) {
+/** The Comskills Circle mark: people standing in a ring, one of them you (brass). */
+export function CircleMark({ size = 28, spin = false }: { size?: number; spin?: boolean }) {
+  const dots = [0, 1, 2, 3, 4, 5];
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="shrink-0">
-      <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.2" />
-      <circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="1" strokeDasharray="1.5 2.5" />
+      <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" strokeOpacity="0.18" strokeWidth="1" />
+      <circle cx="16" cy="16" r="9.5" fill="none" stroke="var(--brass)" strokeOpacity="0.55" strokeWidth="1.4" />
       <motion.g
-        initial={spin ? { rotate: -140 } : false}
-        animate={{ rotate: 0 }}
-        transition={{ type: "spring", stiffness: 60, damping: 7, delay: 0.2 }}
+        initial={spin ? { rotate: -120, opacity: 0 } : false}
+        animate={{ rotate: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 60, damping: 9, delay: 0.15 }}
         style={{ originX: "16px", originY: "16px" }}
       >
-        <path d="M16 3.5 L19.2 16 L16 14.4 L12.8 16 Z" fill="var(--brass)" />
-        <path d="M16 28.5 L12.8 16 L16 17.6 L19.2 16 Z" fill="currentColor" fillOpacity="0.45" />
+        {dots.map((i) => {
+          const a = (i / dots.length) * Math.PI * 2 - Math.PI / 2;
+          const me = i === 0;
+          return <circle key={i} cx={16 + Math.cos(a) * 9.5} cy={16 + Math.sin(a) * 9.5} r={me ? 2.9 : 2.1} fill={me ? "var(--brass)" : "currentColor"} fillOpacity={me ? 1 : 0.8} />;
+        })}
       </motion.g>
-      <circle cx="16" cy="16" r="1.6" fill="var(--night)" stroke="var(--brass)" strokeWidth="1" />
+      <circle cx="16" cy="16" r="2.2" fill="var(--aurora)" />
     </svg>
   );
 }

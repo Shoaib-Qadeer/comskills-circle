@@ -5,8 +5,8 @@ import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Compass", template: "%s · Compass" },
-  description: "Share internships and opportunities within the M1 AIRE class, get matched automatically, and see where everyone is heading.",
+  title: { default: "Comskills Circle", template: "%s · Comskills Circle" },
+  description: "The private community of the Comskills Fellowship: pitch projects, find teammates, track scholarships and share opportunities.",
   robots: { index: false, follow: false },
 };
 
@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 };
 
 // Applies the saved theme before paint so there is no flash.
-const themeScript = `try{var t=localStorage.getItem('compass-theme');document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'dark'}catch(e){document.documentElement.dataset.theme='dark'}`;
+const themeScript = `try{var t=localStorage.getItem('circle-theme');document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'dark'}catch(e){document.documentElement.dataset.theme='dark'}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

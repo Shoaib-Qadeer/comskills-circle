@@ -7,7 +7,7 @@ import { ExternalLink, MapPin, Pencil, Trash2, Wifi, Calendar, Clock, Euro, Buil
 import type { OpportunityDTO } from "@/lib/types";
 import { OPPORTUNITY_TYPES } from "@/lib/taxonomy";
 import { api, formatDate, timeAgo } from "@/lib/client";
-import { CompassMark, DeadlinePill, OrgMark, WarningChips, CountUp } from "./bits";
+import { DeadlinePill, OrgMark, WarningChips, CountUp } from "./bits";
 import { Avatar, Button, FieldChip, LinkButton, Modal, Tag, cx } from "./ui";
 
 export const typeLabel = (t: string) => OPPORTUNITY_TYPES.find((x) => x.value === t)?.label ?? t;
@@ -69,11 +69,7 @@ export function OpportunityCard({ o, onOpen, index = 0 }: { o: OpportunityDTO; o
         <WarningChips warnings={o.warnings.filter((w) => w.kind === "french_required" || w.kind === "duration_mismatch")} />
       </div>
       <div className="mt-auto flex items-center gap-2 pt-4 text-xs text-faint">
-        {o.starter ? (
-          <>
-            <CompassMark size={16} /> Starter pick added by Compass
-          </>
-        ) : o.postedBy ? (
+        {o.postedBy ? (
           <>
             <Avatar name={o.postedBy.name} src={o.postedBy.photoUrl} size={18} />
             {o.postedByMe ? "You" : o.postedBy.name} shared this {timeAgo(o.createdAt)}
@@ -140,8 +136,8 @@ export function OpportunityDetail({
         <div className="mb-5 flex items-center gap-3 rounded-2xl border border-brass/30 bg-brass/[0.07] p-4">
           <Sparkles className="size-5 text-brass" />
           <p className="text-sm">
-            Relevant to <CountUp value={o.matchCount} className="font-semibold text-brass" /> classmate{o.matchCount === 1 ? "" : "s"}
-            <span className="text-dim"> — Compass never shows you who.</span>
+            Relevant to <CountUp value={o.matchCount} className="font-semibold text-brass" /> member{o.matchCount === 1 ? "" : "s"}
+            <span className="text-dim"> — Comskills Circle never shows you who.</span>
           </p>
         </div>
       )}
@@ -185,18 +181,8 @@ export function OpportunityDetail({
         </blockquote>
       )}
 
-      {o.starter && (
-        <p className="mt-6 rounded-2xl border border-line p-4 text-sm text-dim">
-          A starter pick researched in October 2026 so the board isn't empty. Details can change, so check the posting before you apply.
-        </p>
-      )}
-
       <div className="mt-6 flex items-center gap-2 text-sm text-faint">
-        {o.starter ? (
-          <>
-            <CompassMark size={18} /> Added by Compass {timeAgo(o.createdAt)}
-          </>
-        ) : o.postedBy ? (
+        {o.postedBy ? (
           <>
             <Avatar name={o.postedBy.name} src={o.postedBy.photoUrl} size={22} />
             Shared by {o.postedByMe ? "you" : o.postedBy.name} {timeAgo(o.createdAt)}

@@ -19,7 +19,7 @@ export const POST = route(async () => {
       feature: "extraction",
       label: "admin-test",
       system: 'Reply with JSON only: {"ok": true, "message": "<five words saying hello>"}',
-      user: "Test from the Compass admin dashboard.",
+      user: "Test from the Comskills Circle admin dashboard.",
       schema: z.object({ ok: z.boolean(), message: z.string() }),
       maxOutputTokens: 100,
     });

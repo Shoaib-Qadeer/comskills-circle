@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { isHttpUrl } from "./url";
-import { containsContactDetails } from "./pii";
 
 const httpUrl = z
   .string()
@@ -81,43 +80,6 @@ export const matchPatchSchema = z.object({
   saved: z.boolean().optional(),
   dismissed: z.boolean().optional(),
 });
-
-const noContact = (label: string) =>
-  z
-    .string()
-    .trim()
-    .max(240)
-    .nullable()
-    .refine((v) => !containsContactDetails(v), `${label}: please share only a public profile link, not phone numbers or emails`);
-
-export const connectionInputSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2)
-    .max(80)
-    .refine((v) => !containsContactDetails(v), "Please share only a public profile link, not phone numbers or emails"),
-  role: noContact("Role"),
-  organization: noContact("Organization"),
-  location: noContact("Location"),
-  fields: shortList(4, 40).min(1, "Pick at least one field"),
-  linkedin: z
-    .string()
-    .trim()
-    .max(300)
-    .nullable()
-    .refine((v) => v === null || v === "" || isHttpUrl(v), "LinkedIn must be a public profile link"),
-  contactPreference: z.enum(["direct", "ask_first"]),
-  note: noContact("Note"),
-  consent: z.literal(true, { error: "Please confirm this is a public profile or the person agreed to be listed" }),
-});
-
-export const introRequestSchema = z.object({
-  connectionId: z.string(),
-  message: z.string().trim().min(10, "Add a short message (at least 10 characters)").max(500),
-});
-
-export const introPatchSchema = z.object({ status: z.enum(["accepted", "declined", "done"]) });
 
 /* ---------------- LLM output schemas (lenient: bad values become null) ---------------- */
 

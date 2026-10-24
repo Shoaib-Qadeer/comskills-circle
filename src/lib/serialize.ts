@@ -1,9 +1,5 @@
 import type { ObjectId } from "mongodb";
 import type {
-  ConnectionDoc,
-  ConnectionDTO,
-  IntroRequestDoc,
-  IntroRequestDTO,
   MeDTO,
   OpportunityDoc,
   OpportunityDTO,
@@ -103,43 +99,7 @@ export function opportunityDTO(
     ...(mine || viewer.isAdmin ? { matchCount: o.matchCount } : {}),
     status: isExpired(o.deadline) ? "expired" : "open",
     warnings: computeWarnings(o),
-    starter: Boolean(o.starter),
     createdAt: o.createdAt.toISOString(),
-  };
-}
-
-export function connectionDTO(c: ConnectionDoc, viewerId: ObjectId, owners: Map<string, MiniUser>, overlap?: string[]): ConnectionDTO {
-  return {
-    id: String(c._id),
-    name: c.name,
-    role: c.role,
-    organization: c.organization,
-    location: c.location,
-    fields: c.fields,
-    linkedin: isHttpUrl(c.linkedin) ? c.linkedin : null,
-    contactPreference: c.contactPreference,
-    note: c.note,
-    addedBy: owners.get(String(c.addedBy)) ?? null,
-    addedByMe: String(c.addedBy) === String(viewerId),
-    ...(overlap ? { overlap } : {}),
-  };
-}
-
-export function introDTO(
-  r: IntroRequestDoc,
-  conns: Map<string, ConnectionDoc>,
-  people: Map<string, MiniUser>,
-): IntroRequestDTO {
-  const c = conns.get(String(r.connectionId));
-  const owner = people.get(String(r.addedBy));
-  return {
-    id: String(r._id),
-    connection: c ? { id: String(c._id), name: c.name, role: c.role } : null,
-    requester: people.get(String(r.requesterId)) ?? null,
-    owner: owner ? { id: owner.id, name: owner.name } : null,
-    message: r.message,
-    status: r.status,
-    createdAt: r.createdAt.toISOString(),
   };
 }
 

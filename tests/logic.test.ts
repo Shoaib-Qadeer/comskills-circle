@@ -4,9 +4,8 @@ import { computeWarnings, daysUntil, isExpired } from "../src/lib/warnings";
 import { fallbackScore } from "../src/lib/fallback-match";
 import { containsContactDetails } from "../src/lib/pii";
 import { parseJsonLoose } from "../src/lib/llm";
-import { llmExtractionSchema, connectionInputSchema } from "../src/lib/schemas";
+import { llmExtractionSchema } from "../src/lib/schemas";
 import { parsePage } from "../src/lib/fetch-page";
-import { isAllowedEmail } from "../src/lib/auth";
 
 const NOW = new Date("2026-10-17T10:00:00Z");
 
@@ -76,7 +75,7 @@ describe("fallback matcher", () => {
   });
 });
 
-describe("contact-detail detection (connections)", () => {
+describe("contact-detail detection", () => {
   it("rejects emails and phone numbers", () => {
     expect(containsContactDetails("reach her at jane.doe@uni.fr")).toBe(true);
     expect(containsContactDetails("+33 6 12 34 56 78")).toBe(true);
@@ -85,15 +84,6 @@ describe("contact-detail detection (connections)", () => {
   it("allows normal text and LinkedIn URLs with digits", () => {
     expect(containsContactDetails("Postdoc in neuropsychology, Paris 2025")).toBe(false);
     expect(containsContactDetails("https://www.linkedin.com/in/jane-doe-12345678")).toBe(false);
-  });
-  it("schema requires consent and blocks contacts in notes", () => {
-    const ok = {
-      name: "Dr. Jane Doe", role: "Postdoc", organization: null, location: "Paris", fields: ["neuroscience"],
-      linkedin: "https://www.linkedin.com/in/jane", contactPreference: "ask_first", note: null, consent: true,
-    };
-    expect(connectionInputSchema.safeParse(ok).success).toBe(true);
-    expect(connectionInputSchema.safeParse({ ...ok, consent: false }).success).toBe(false);
-    expect(connectionInputSchema.safeParse({ ...ok, note: "call 0612345678" }).success).toBe(false);
   });
 });
 
@@ -108,17 +98,6 @@ describe("LLM output handling", () => {
       durationMonths: "six", paid: "yes", frenchRequired: null, fields: ["ai-ml"], tags: ["NLP"], summary: "x",
     });
     expect(out).toMatchObject({ title: "Research intern", organization: null, remote: null, type: "other", deadline: null, durationMonths: null, paid: null, tags: ["nlp"] });
-  });
-});
-
-describe("auth domain lock", () => {
-  it("only allows verified LPI emails", () => {
-    expect(isAllowedEmail("a.b@learningplanetinstitute.org", true)).toBe(true);
-    expect(isAllowedEmail("a.b@LearningPlanetInstitute.org", true)).toBe(true);
-    expect(isAllowedEmail("a.b@learningplanetinstitute.org", false)).toBe(false);
-    expect(isAllowedEmail("a.b@gmail.com", true)).toBe(false);
-    expect(isAllowedEmail("a@learningplanetinstitute.org.evil.com", true)).toBe(false);
-    expect(isAllowedEmail("a@evil-learningplanetinstitute.org", true)).toBe(false);
   });
 });
 

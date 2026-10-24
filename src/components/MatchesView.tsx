@@ -7,12 +7,11 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { Check, CircleAlert, ExternalLink, Heart, Lightbulb, Sparkles, Telescope, X, Target } from "lucide-react";
-import type { CoachAdvice, ConnectionDTO, MatchDTO } from "@/lib/types";
+import type { CoachAdvice, MatchDTO } from "@/lib/types";
 import { api, daysLeft, firstName } from "@/lib/client";
 import { CountUp, DeadlinePill, OrgMark, ScoreRing, WarningChips } from "./bits";
 import { Button, EmptyState, FieldChip, LinkButton, Segmented, Skeleton, cx } from "./ui";
 import { OppMeta, OpportunityDetail } from "./OpportunityParts";
-import { ConnectionCard, RequestIntroModal } from "./ConnectionParts";
 
 type Tab = "new" | "saved" | "all";
 
@@ -25,10 +24,8 @@ export function MatchesView({ name }: { name: string }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>("all");
   const { data, mutate, isLoading } = useSWR<{ items: MatchDTO[] }>(`/api/matches?filter=all`);
-  const { data: suggested, mutate: mutateSuggested } = useSWR<{ items: ConnectionDTO[] }>("/api/connections/suggested");
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<MatchDTO | null>(null);
-  const [intro, setIntro] = useState<ConnectionDTO | null>(null);
   // Snapshot of what was unseen when the page opened, so "New" doesn't empty while you read it
   const [newIds, setNewIds] = useState<Set<string> | null>(null);
   const markedRef = useRef(false);
@@ -97,7 +94,7 @@ export function MatchesView({ name }: { name: string }) {
   }
 
   return (
-    <div className="grid gap-10 xl:grid-cols-[1fr_320px]">
+    <div>
       <div className="min-w-0">
         <header className="mb-8">
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">
@@ -157,33 +154,7 @@ export function MatchesView({ name }: { name: string }) {
         )}
       </div>
 
-      <aside className="xl:pt-2">
-        <h2 className="font-display text-lg font-semibold">People in your network</h2>
-        <p className="mb-4 mt-1 text-sm text-dim">Contacts classmates shared in your fields.</p>
-        {!suggested ? (
-          <Skeleton className="h-36 rounded-[var(--radius-panel)]" />
-        ) : suggested.items.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line-strong p-4 text-sm text-dim">
-            No one yet. Know someone useful?{" "}
-            <Link href="/connections" className="text-brass underline-offset-2 hover:underline">
-              Add them to the class network
-            </Link>
-            .
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {suggested.items.slice(0, 4).map((c, i) => (
-              <ConnectionCard key={c.id} c={c} index={i} compact onRequest={setIntro} />
-            ))}
-            <Link href="/connections" className="block pt-1 text-sm text-brass hover:underline">
-              See all connections
-            </Link>
-          </div>
-        )}
-      </aside>
-
       <OpportunityDetail o={open?.opportunity ?? null} open={Boolean(open)} onClose={() => setOpen(null)} />
-      <RequestIntroModal c={intro} onClose={() => setIntro(null)} onSent={() => mutateSuggested()} />
     </div>
   );
 }

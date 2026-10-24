@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Download, Moon, RefreshCw, Sun } from "lucide-react";
-import type { ConnectionDTO, MatchDTO, MeDTO } from "@/lib/types";
+import type { MatchDTO, MeDTO } from "@/lib/types";
 import { SUGGESTED_LOCATIONS, SUGGESTED_ROLES, SUGGESTED_SKILLS } from "@/lib/taxonomy";
 import { api, fetcher } from "@/lib/client";
 import { Button, ChipInput, ErrorText, Input, Label, Modal, PageHeader, Panel, Skeleton, Textarea, Toggle } from "./ui";
@@ -77,18 +77,14 @@ export function SettingsView() {
 
   async function download() {
     try {
-      const [profile, matches, connections] = await Promise.all([
-        fetcher<MeDTO>("/api/me"),
-        fetcher<{ items: MatchDTO[] }>("/api/matches?filter=all"),
-        fetcher<{ items: ConnectionDTO[] }>("/api/connections"),
-      ]);
+      const [profile, matches] = await Promise.all([fetcher<MeDTO>("/api/me"), fetcher<{ items: MatchDTO[] }>("/api/matches?filter=all")]);
       const blob = new Blob(
-        [JSON.stringify({ exportedAt: new Date().toISOString(), profile, matches: matches.items, connectionsYouAdded: connections.items.filter((c) => c.addedByMe) }, null, 2)],
+        [JSON.stringify({ exportedAt: new Date().toISOString(), profile, matches: matches.items, }, null, 2)],
         { type: "application/json" },
       );
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "compass-my-data.json";
+      a.download = "my-data.json";
       a.click();
       URL.revokeObjectURL(a.href);
     } catch {

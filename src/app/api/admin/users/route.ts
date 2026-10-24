@@ -9,15 +9,14 @@ export const maxDuration = 60;
 
 export const GET = route(async () => {
   await requireAdmin();
-  const { users, opportunities, connections, matches } = await collections();
+  const { users, opportunities, matches } = await collections();
   const all = await users.find({}).sort({ createdAt: -1 }).limit(1000).toArray();
-  const [posted, added, matched] = await Promise.all([
+  const [posted, matched] = await Promise.all([
     opportunities.aggregate<{ _id: unknown; n: number }>([{ $group: { _id: "$postedBy", n: { $sum: 1 } } }]).toArray(),
-    connections.aggregate<{ _id: unknown; n: number }>([{ $group: { _id: "$addedBy", n: { $sum: 1 } } }]).toArray(),
     matches.aggregate<{ _id: unknown; n: number }>([{ $match: { dismissed: false } }, { $group: { _id: "$userId", n: { $sum: 1 } } }]).toArray(),
   ]);
   const count = (rows: { _id: unknown; n: number }[]) => new Map(rows.map((r) => [String(r._id), r.n]));
-  const p = count(posted), a = count(added), m = count(matched);
+  const p = count(posted), m = count(matched);
   return json({
     items: all.map((u) => ({
       id: String(u._id),
@@ -33,7 +32,6 @@ export const GET = route(async () => {
       createdAt: u.createdAt?.toISOString() ?? null,
       lastSeenAt: u.lastSeenAt ? new Date(u.lastSeenAt).toISOString() : null,
       posted: p.get(String(u._id)) ?? 0,
-      connections: a.get(String(u._id)) ?? 0,
       matches: m.get(String(u._id)) ?? 0,
     })),
   });

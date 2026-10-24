@@ -6,19 +6,19 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { AnimatePresence, motion } from "motion/react";
 import { signOut } from "next-auth/react";
-import { Archive, Bell, Compass, LogOut, Moon, Plus, Settings, Sparkles, Sun, Users, Network, Shield, Lock } from "lucide-react";
+import { Archive, Bell, Compass, LogOut, Moon, Plus, Settings, Sparkles, Sun, Users, Shield, Lock } from "lucide-react";
 import { Avatar, cx } from "./ui";
-import { CompassMark } from "./bits";
+import { CircleMark } from "./bits";
 
 type Me = { name: string; photoUrl: string | null; hasPosted: boolean; isAdmin: boolean; email: string };
-type Notif = { unseenMatches: number; incomingIntros: number; pendingApprovals?: number; total: number };
+type Notif = { unseenMatches: number; pendingApprovals?: number; total: number };
 
-type NavItem = { href: string; label: string; icon: typeof Bell; badge?: "matches" | "intros" | "approvals" };
+type NavItem = { href: string; label: string; icon: typeof Bell; badge?: "matches" | "approvals" };
 const NAV: NavItem[] = [
   { href: "/matches", label: "Matches", icon: Sparkles, badge: "matches" as const },
   { href: "/opportunities", label: "Opportunities", icon: Compass },
   { href: "/class", label: "Class", icon: Users },
-  { href: "/connections", label: "Connections", icon: Network, badge: "intros" as const },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 const ARCHIVE: NavItem = { href: "/archive", label: "Archive", icon: Archive };
 const ADMIN: NavItem = { href: "/admin", label: "Admin", icon: Shield, badge: "approvals" };
@@ -32,7 +32,7 @@ export function useTheme() {
     const next = theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try {
-      localStorage.setItem("compass-theme", next);
+      localStorage.setItem("circle-theme", next);
     } catch {}
     setTheme(next);
   };
@@ -114,8 +114,8 @@ function AccountMenu({ me }: { me: Me }) {
 export function AppShell({ me, children }: { me: Me; children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: notif } = useSWR<Notif>("/api/notifications", { refreshInterval: 60_000 });
-  const count = (b?: "matches" | "intros" | "approvals") =>
-    b === "matches" ? notif?.unseenMatches ?? 0 : b === "intros" ? notif?.incomingIntros ?? 0 : b === "approvals" ? notif?.pendingApprovals ?? 0 : 0;
+  const count = (b?: "matches" | "approvals") =>
+    b === "matches" ? notif?.unseenMatches ?? 0 : b === "approvals" ? notif?.pendingApprovals ?? 0 : 0;
   const sideNav = [...NAV, ARCHIVE, ...(me.isAdmin ? [ADMIN] : [])];
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href + "/")) || pathname === href;
   const posting = pathname.startsWith("/opportunities/new");
@@ -125,8 +125,8 @@ export function AppShell({ me, children }: { me: Me; children: React.ReactNode }
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-line bg-night/80 px-4 py-6 backdrop-blur-md lg:flex">
         <Link href="/matches" className="mb-8 flex items-center gap-2.5 px-2 text-star">
-          <CompassMark size={30} />
-          <span className="font-display text-xl font-semibold">Compass</span>
+          <CircleMark size={30} />
+          <span className="font-display text-xl font-semibold">Comskills Circle</span>
         </Link>
         <Link
           href="/opportunities/new"
@@ -165,8 +165,8 @@ export function AppShell({ me, children }: { me: Me; children: React.ReactNode }
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-night/85 px-4 backdrop-blur-md lg:hidden">
         <Link href="/matches" className="flex items-center gap-2">
-          <CompassMark size={26} />
-          <span className="font-display text-lg font-semibold">Compass</span>
+          <CircleMark size={26} />
+          <span className="font-display text-lg font-semibold">Comskills Circle</span>
         </Link>
         <div className="flex items-center gap-1">
           <Link href="/matches" className="relative grid size-10 place-items-center rounded-full text-dim" aria-label={`Notifications: ${notif?.total ?? 0}`}>

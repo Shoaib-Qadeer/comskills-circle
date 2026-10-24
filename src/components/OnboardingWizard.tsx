@@ -8,7 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import type { MeDTO } from "@/lib/types";
 import { SUGGESTED_LOCATIONS, SUGGESTED_ROLES, SUGGESTED_SKILLS } from "@/lib/taxonomy";
 import { api, firstName } from "@/lib/client";
-import { CompassMark } from "./bits";
+import { CircleMark } from "./bits";
 import { Avatar, Button, ChipInput, ErrorText, Input, Label, Textarea, Toggle, cx } from "./ui";
 import { draftFromMe, FieldPicker, LinksFields, linksValid, ProfilePreview, VisibilityPicker, type ProfileDraft } from "./ProfileParts";
 
@@ -85,8 +85,8 @@ export function OnboardingWizard({ me }: { me: MeDTO }) {
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-5 py-8 sm:px-8">
       <header className="mb-10 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <CompassMark size={28} />
-          <span className="font-display text-lg font-semibold">Compass</span>
+          <CircleMark size={28} />
+          <span className="font-display text-lg font-semibold">Comskills Circle</span>
         </div>
         <span className="tabular text-sm text-faint">
           Step {step + 1} of {STEPS.length}
@@ -116,7 +116,7 @@ export function OnboardingWizard({ me }: { me: MeDTO }) {
                     <h1 id="step-0" className="font-display text-3xl font-semibold">
                       Hi {firstName(me.name)}.
                     </h1>
-                    <p className="text-dim">Two minutes, and Compass can start finding things for you.</p>
+                    <p className="text-dim">Two minutes, and Comskills Circle can start finding things for you.</p>
                   </div>
                 </div>
                 <Label htmlFor="headline" hint={`${d.headline.length}/80`}>
@@ -217,11 +217,11 @@ export function OnboardingWizard({ me }: { me: MeDTO }) {
                   <h1 id="step-4" className="font-display text-3xl font-semibold">
                     Links & help
                   </h1>
-                  <p className="mt-1 text-dim">All optional. Links only — Compass never stores files.</p>
+                  <p className="mt-1 text-dim">All optional. Links only — Comskills Circle never stores files.</p>
                 </div>
                 <LinksFields links={d.links} onChange={(l) => set("links", l)} />
                 <div>
-                  <Label>I can help classmates with</Label>
+                  <Label>I can help members with</Label>
                   <ChipInput values={d.skillsOffered} onChange={(v) => set("skillsOffered", v)} suggestions={SUGGESTED_SKILLS} max={10} placeholder="Add a skill…" />
                   {d.visibility !== "open" && <p className="mt-2 text-sm text-faint">Shown only if your profile is Open to collaborate.</p>}
                 </div>
@@ -277,7 +277,7 @@ function FindingMatches({ name, saving }: { name: string; saving: boolean }) {
           </motion.div>
         ))}
         <div className="absolute inset-0 grid place-items-center">
-          <CompassMark size={40} spin />
+          <CircleMark size={40} spin />
         </div>
       </div>
       <h1 className="mt-10 font-display text-3xl font-semibold">{saving ? "Saving your profile…" : `Finding your matches, ${name}…`}</h1>

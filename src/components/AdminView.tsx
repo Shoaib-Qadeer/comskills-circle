@@ -6,13 +6,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { Check, Download, FlaskConical, RefreshCw, RotateCcw, Search, ShieldCheck, Trash2, UserCheck, UserX, Undo2 } from "lucide-react";
 import type { AppSettings, PromptKey } from "@/lib/settings";
-import type { ConnectionDTO, OpportunityDTO } from "@/lib/types";
+import type { OpportunityDTO } from "@/lib/types";
 import { api, formatDate, timeAgo } from "@/lib/client";
 import { CountUp } from "./bits";
 import { Avatar, Button, ErrorText, Input, Label, Modal, PageHeader, Panel, Segmented, Skeleton, Tag, Textarea, Toggle, cx } from "./ui";
 
 type Overview = {
-  counts: { users: number; pending: number; onboarded: number; active7: number; open: number; archived: number; matches: number; connections: number; pendingIntros: number };
+  counts: { users: number; pending: number; onboarded: number; active7: number; open: number; archived: number; matches: number };
   ai: {
     provider: string;
     model: string;
@@ -38,7 +38,6 @@ type AdminUser = {
   createdAt: string | null;
   lastSeenAt: string | null;
   posted: number;
-  connections: number;
   matches: number;
 };
 
@@ -49,7 +48,7 @@ export function AdminView() {
   const { data: overview } = useSWR<Overview>("/api/admin", { refreshInterval: 30_000 });
   return (
     <div>
-      <PageHeader title="Admin" subtitle="Only you can see this page. Approve classmates, tune the AI and keep the board tidy." />
+      <PageHeader title="Admin" subtitle="Only you can see this page. Approve members, tune the AI and keep the board tidy." />
       <div className="-mx-4 mb-8 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
         <Segmented
           id="admin-tab"
@@ -119,7 +118,6 @@ function OverviewTab({ data, go }: { data?: Overview; go: (t: Tab) => void }) {
         <Stat label="open opportunities" value={data?.counts.open} tone="aurora" onClick={() => go("content")} />
         <Stat label="in the archive" value={data?.counts.archived} onClick={() => go("content")} />
         <Stat label="active matches" value={data?.counts.matches} />
-        <Stat label="shared connections" value={data?.counts.connections} />
       </div>
       <Panel className="p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -252,14 +250,14 @@ function PeopleTab() {
   }
 
   function exportCsv() {
-    const rows = [["name", "email", "status", "onboarded", "visibility", "joined", "last seen", "shared", "connections", "matches"]];
+    const rows = [["name", "email", "status", "onboarded", "visibility", "joined", "last seen", "shared", "matches"]];
     (data?.items ?? []).forEach((u) =>
-      rows.push([u.name, u.email, u.status, String(u.onboarded), u.visibility, u.createdAt ?? "", u.lastSeenAt ?? "", String(u.posted), String(u.connections), String(u.matches)]),
+      rows.push([u.name, u.email, u.status, String(u.onboarded), u.visibility, u.createdAt ?? "", u.lastSeenAt ?? "", String(u.posted), String(u.matches)]),
     );
     const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "compass-members.csv";
+    a.download = "members.csv";
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -512,9 +510,9 @@ function AccessTab() {
       </Panel>
       <Panel className="p-5 sm:p-6">
         <Label htmlFor="pre" hint={`${pre.valid.length} emails`}>
-          Pre-approved classmates
+          Pre-approved members
         </Label>
-        <p className="mb-3 text-sm text-dim">Paste the class list (one email per line, or separated by commas). These people skip the waiting step, even if they're already waiting.</p>
+        <p className="mb-3 text-sm text-dim">Paste the community list (one email per line, or separated by commas). These people skip the waiting step, even if they're already waiting.</p>
         <Textarea
           id="pre"
           rows={6}
@@ -532,7 +530,7 @@ function AccessTab() {
           Allow these emails from other domains
         </Label>
         <p className="mb-3 text-sm text-dim">
-          Normally only the domains in ALLOWED_EMAIL_DOMAIN can sign in. Add specific outside addresses here (for example a classmate's other university account). They still need approval unless pre-approved.
+          Normally only the domains in ALLOWED_EMAIL_DOMAIN can sign in. Add specific outside addresses here (for example a member's other university account). They still need approval unless pre-approved.
         </p>
         <Textarea
           id="extra"
@@ -555,7 +553,7 @@ function AccessTab() {
 
 const FEATURE_LABELS: Record<keyof AppSettings["ai"]["features"], { label: string; description: string }> = {
   extraction: { label: "Read posted links", description: "Fills in title, deadline, duration and fields when someone shares a link." },
-  matching: { label: "Match opportunities to people", description: "Scores each opportunity for every classmate and writes the reason." },
+  matching: { label: "Match opportunities to people", description: "Scores each opportunity for every member and writes the reason." },
   profileSuggestions: { label: "Suggest profile fields", description: "Suggests fields while people write their direction." },
   coach: { label: "How to approach this", description: "Tailored advice on a match: what to highlight, gaps, a first step." },
 };
@@ -614,7 +612,7 @@ function AiTab({ overview }: { overview?: Overview }) {
         </div>
         {testResult && <p className={cx("mt-3 text-sm", testResult.startsWith("Working") ? "text-aurora" : "text-ember")}>{testResult}</p>}
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
-          <Toggle checked={ai.enabled} onChange={(v) => setAi({ enabled: v })} label="AI switched on" description="When off, Compass uses basic rule-based matching and manual forms." />
+          <Toggle checked={ai.enabled} onChange={(v) => setAi({ enabled: v })} label="AI switched on" description="When off, Comskills Circle uses basic rule-based matching and manual forms." />
           <div>
             <Label htmlFor="model" hint="Leave empty to use LLM_MODEL">
               Model override
@@ -626,7 +624,7 @@ function AiTab({ overview }: { overview?: Overview }) {
 
       <Panel className="p-5 sm:p-6">
         <h2 className="font-display text-lg font-semibold">Budget and behaviour</h2>
-        <p className="mt-1 text-sm text-dim">When a daily cap is reached, Compass switches to basic matching until midnight UTC. Your provider's own limits still apply.</p>
+        <p className="mt-1 text-sm text-dim">When a daily cap is reached, Comskills Circle switches to basic matching until midnight UTC. Your provider's own limits still apply.</p>
         <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <NumberField id="calls" label="AI calls per day" value={ai.dailyCallLimit} min={0} max={100000} onChange={(v) => setAi({ dailyCallLimit: v })} />
           <NumberField id="tokens" label="Tokens per day" hint="input + output" value={ai.dailyTokenLimit} min={0} max={100000000} step={10000} onChange={(v) => setAi({ dailyTokenLimit: v })} />
@@ -743,8 +741,8 @@ function AiTab({ overview }: { overview?: Overview }) {
 /* ------------------------------------------------------------------ content */
 
 function ContentTab() {
-  const { data, mutate } = useSWR<{ opportunities: OpportunityDTO[]; connections: ConnectionDTO[] }>("/api/admin/content");
-  const [which, setWhich] = useState<"open" | "expired" | "connections">("open");
+  const { data, mutate } = useSWR<{ opportunities: OpportunityDTO[] }>("/api/admin/content");
+  const [which, setWhich] = useState<"open" | "expired">("open");
   const [busy, setBusy] = useState<string | null>(null);
   const opps = (data?.opportunities ?? []).filter((o) => (which === "expired" ? o.status === "expired" : o.status === "open"));
 
@@ -752,7 +750,7 @@ function ContentTab() {
     setBusy(o.id);
     try {
       const r = await api<{ matchCount: number }>("/api/admin", "POST", { action: "rematch", opportunityId: o.id });
-      toast.success(`Matched to ${r.matchCount} classmates`);
+      toast.success(`Matched to ${r.matchCount} members`);
       mutate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -767,16 +765,9 @@ function ContentTab() {
     mutate();
     globalMutate("/api/admin");
   }
-  async function removeConn(c: ConnectionDTO) {
-    if (!confirm(`Remove ${c.name} from the class network?`)) return;
-    await api(`/api/connections/${c.id}`, "DELETE").catch((e) => toast.error(e.message));
-    toast.success("Removed");
-    mutate();
-  }
 
   return (
     <div className="space-y-8">
-      <StarterImport onDone={() => { mutate(); globalMutate("/api/admin"); }} />
       <div>
         <Segmented
           id="content-which"
@@ -786,41 +777,19 @@ function ContentTab() {
           options={[
             { value: "open", label: "Open", count: data?.opportunities.filter((o) => o.status === "open").length },
             { value: "expired", label: "Archived", count: data?.opportunities.filter((o) => o.status === "expired").length },
-            { value: "connections", label: "Connections", count: data?.connections.length },
           ]}
         />
         {!data ? (
           <Skeleton className="h-64 rounded-[var(--radius-panel)]" />
-        ) : which === "connections" ? (
-          <ul className="divide-y divide-line rounded-[var(--radius-panel)] border border-line bg-raised/60">
-            {data.connections.length === 0 && <li className="p-6 text-center text-dim">No connections yet.</li>}
-            {data.connections.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{c.name}</p>
-                  <p className="text-sm text-dim">
-                    {[c.role, c.organization].filter(Boolean).join(", ")}
-                    {c.addedBy && `, added by ${c.addedBy.name}`}
-                  </p>
-                </div>
-                <Button size="sm" variant="quiet" onClick={() => removeConn(c)} aria-label={`Remove ${c.name}`}>
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </li>
-            ))}
-          </ul>
         ) : (
           <ul className="divide-y divide-line rounded-[var(--radius-panel)] border border-line bg-raised/60">
             {opps.length === 0 && <li className="p-6 text-center text-dim">Nothing here.</li>}
             {opps.map((o) => (
               <li key={o.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
                 <div className="min-w-0 flex-1 basis-64">
-                  <p className="flex flex-wrap items-center gap-2 font-medium">
-                    {o.title}
-                    {o.starter && <Tag tone="violet">starter</Tag>}
-                  </p>
+                  <p className="font-medium">{o.title}</p>
                   <p className="text-sm text-dim">
-                    {[o.organization, o.starter ? "added by Compass" : o.postedBy ? `shared by ${o.postedBy.name}` : "former member", o.deadline ? `deadline ${formatDate(o.deadline)}` : "no deadline", `${o.matchCount ?? 0} matches`]
+                    {[o.organization, o.postedBy ? `shared by ${o.postedBy.name}` : "former member", o.deadline ? `deadline ${formatDate(o.deadline)}` : "no deadline", `${o.matchCount ?? 0} matches`]
                       .filter(Boolean)
                       .join(", ")}
                   </p>
@@ -837,88 +806,5 @@ function ContentTab() {
         )}
       </div>
     </div>
-  );
-}
-
-type StarterItem = { id: string; title: string; domain: string; imported: boolean; deadline: string | null };
-
-function StarterImport({ onDone }: { onDone: () => void }) {
-  const { data, mutate } = useSWR<{ items: StarterItem[] }>("/api/admin/starter");
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
-  const [showList, setShowList] = useState(false);
-  const missing = (data?.items ?? []).filter((i) => !i.imported);
-  const domains = Array.from(new Set((data?.items ?? []).map((i) => i.domain)));
-
-  async function run() {
-    setRunning(true);
-    let ok = 0;
-    for (let i = 0; i < missing.length; i++) {
-      setProgress({ done: i, total: missing.length, current: missing[i].title });
-      try {
-        const r = await api<{ status: string }>("/api/admin/starter", "POST", { id: missing[i].id });
-        if (r.status === "imported") ok++;
-      } catch (e) {
-        toast.error(`${missing[i].title}: ${e instanceof Error ? e.message : "failed"}`);
-      }
-    }
-    setProgress({ done: missing.length, total: missing.length, current: "" });
-    setRunning(false);
-    toast.success(`Added ${ok} starter opportunities and matched them to the class`);
-    mutate();
-    onDone();
-  }
-
-  return (
-    <Panel className="p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-xl">
-          <h2 className="font-display text-lg font-semibold">Starter opportunities</h2>
-          <p className="mt-1 text-sm text-dim">
-            {data ? `${data.items.length} real internships and programmes researched in October 2026, across ${domains.length} themes.` : "…"} Each is matched to classmates as it's added. Safe to run again: existing ones are skipped.
-          </p>
-        </div>
-        <Button onClick={run} loading={running} disabled={!data || missing.length === 0}>
-          {missing.length === 0 && data ? "All added" : `Add ${missing.length} starter opportunities`}
-        </Button>
-      </div>
-      {progress && (
-        <div className="mt-5" aria-live="polite">
-          <div className="h-2 overflow-hidden rounded-full bg-night-2">
-            <motion.div className="h-full rounded-full bg-brass" animate={{ width: `${(progress.done / Math.max(1, progress.total)) * 100}%` }} />
-          </div>
-          <p className="mt-2 text-sm text-dim">{progress.current ? `Adding and matching: ${progress.current}` : `Done, ${progress.total} processed.`}</p>
-        </div>
-      )}
-      <button onClick={() => setShowList((v) => !v)} className="mt-4 text-sm text-brass hover:underline" aria-expanded={showList}>
-        {showList ? "Hide the list" : "See the list"}
-      </button>
-      <AnimatePresence>
-        {showList && data && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-            <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-2">
-              {domains.map((d) => (
-                <div key={d}>
-                  <p className="mb-1.5 text-sm font-medium">{d}</p>
-                  <ul className="space-y-1 text-sm">
-                    {data.items
-                      .filter((i) => i.domain === d)
-                      .map((i) => (
-                        <li key={i.id} className="flex gap-2 text-dim">
-                          <span className={cx("mt-1.5 size-1.5 shrink-0 rounded-full", i.imported ? "bg-aurora" : "bg-line-strong")} />
-                          <span>
-                            {i.title}
-                            {i.deadline && new Date(i.deadline) < new Date() && <span className="text-faint"> (closed, goes to Archive)</span>}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Panel>
   );
 }

@@ -1,19 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { motion } from "motion/react";
-import { Lock, Send, Sparkles } from "lucide-react";
-import { CompassMark } from "./bits";
-import { Button } from "./ui";
+import { GraduationCap, Lightbulb, Sparkles } from "lucide-react";
+import { CircleMark } from "./bits";
 
 // Decorative sky: invented hubs and people (no real data), drawn once on load.
 const HUBS = [
-  { x: 150, y: 120, r: 26, c: "#14B8A6", label: "Digital health" },
-  { x: 430, y: 90, r: 20, c: "#8B5CF6", label: "AI" },
-  { x: 520, y: 300, r: 24, c: "#38BDF8", label: "Climate" },
-  { x: 250, y: 330, r: 18, c: "#EC4899", label: "Neuroscience" },
-  { x: 90, y: 270, r: 14, c: "#FB923C", label: "Policy" },
+  { x: 150, y: 120, r: 26, c: "#22C55E", label: "Bioinformatics" },
+  { x: 430, y: 90, r: 20, c: "#8B5CF6", label: "AI & ML" },
+  { x: 520, y: 300, r: 24, c: "#F59E0B", label: "Scholarships" },
+  { x: 250, y: 330, r: 18, c: "#14B8A6", label: "Public health" },
+  { x: 90, y: 270, r: 14, c: "#84CC16", label: "Biotech" },
 ];
 const PEOPLE = [
   { x: 260, y: 150, h: [0, 1] },
@@ -90,43 +88,54 @@ function Sky() {
 
 export function Landing() {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-5 sm:px-8">
-      <header className="flex h-20 items-center justify-between">
+    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-8">
+      <header className="flex h-16 items-center justify-between sm:h-20">
         <div className="flex items-center gap-2.5">
-          <CompassMark size={30} spin />
-          <span className="font-display text-xl font-semibold">Compass</span>
+          <CircleMark size={30} spin />
+          <span className="font-display text-lg font-semibold sm:text-xl">Comskills Circle</span>
         </div>
-        <Link href="/privacy" className="text-sm text-dim hover:text-star">
-          Privacy
-        </Link>
+        <nav className="flex items-center gap-1">
+          <Link href="/privacy" className="inline-flex h-11 items-center px-3 text-sm text-dim hover:text-star">
+            Privacy
+          </Link>
+          <Link href="/login" className="inline-flex h-11 items-center rounded-full px-4 text-sm font-medium text-star hover:bg-raised-2">
+            Log in
+          </Link>
+        </nav>
       </header>
 
-      <main className="grid flex-1 items-center gap-10 py-8 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+      <main className="grid flex-1 items-center gap-8 py-6 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
         <div className="max-w-xl">
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 inline-flex items-center gap-2 rounded-full border border-line-strong px-3 py-1 text-xs text-dim">
+            <span className="size-1.5 rounded-full bg-aurora" /> For the Comskills Fellowship
+          </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display text-[clamp(2.6rem,6vw,4.6rem)] font-semibold leading-[0.98] tracking-[-0.035em]"
+            className="font-display text-[clamp(2.4rem,7vw,4.4rem)] font-semibold leading-[1] tracking-[-0.035em]"
             style={{ fontVariationSettings: '"opsz" 96' }}
           >
-            Your class, heading somewhere. Together.
+            Find your people. Build something together.
           </motion.h1>
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-6 max-w-md text-lg leading-relaxed text-dim">
-            A private board for the M1 AIRE class. Share an internship link, and it reaches every classmate it fits — including the ones you didn’t think of.
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-5 max-w-md text-base leading-relaxed text-dim sm:text-lg">
+            Pitch a project and find teammates across computer science and the biosciences. Track scholarships with your batch, share opportunities, and hear the news first.
           </motion.p>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }} className="mt-9 flex flex-col items-start gap-3">
-            <Button size="lg" onClick={() => signIn("google", { callbackUrl: "/matches" })}>
-              <GoogleG /> Sign in with your LPI Google account
-            </Button>
-            <p className="text-sm text-faint">Only @learningplanetinstitute.org accounts can join.</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }} className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href="/signup" className="inline-flex h-12 items-center rounded-full bg-brass px-6 font-medium text-brass-ink transition-shadow hover:shadow-[0_0_0_4px_var(--glow)]">
+              Create your account
+            </Link>
+            <Link href="/login" className="inline-flex h-12 items-center rounded-full border border-line-strong px-6 font-medium hover:bg-raised-2">
+              Log in
+            </Link>
           </motion.div>
+          <p className="mt-3 text-sm text-faint">Free and student-led. The Comskills team approves every account.</p>
 
-          <ul className="mt-14 grid gap-5 text-sm sm:grid-cols-3">
+          <ul className="mt-12 grid gap-5 text-sm sm:grid-cols-3">
             {[
-              { icon: Send, t: "Share in 30 seconds", d: "Paste a link. Compass reads the details for you." },
-              { icon: Sparkles, t: "Matched for you", d: "Each match says why it fits and what to watch for." },
-              { icon: Lock, t: "Private by default", d: "Keep your goals hidden and still get matched." },
+              { icon: Lightbulb, t: "Pitch a project", d: "Say what you're building and who you need. People say “I'm interested”." },
+              { icon: GraduationCap, t: "Track scholarships", d: "Log where you applied. Celebrate the wins together." },
+              { icon: Sparkles, t: "Matched for you", d: "Projects and opportunities that fit your skills, with the reason why." },
             ].map((f) => (
               <li key={f.t}>
                 <f.icon className="mb-2 size-5 text-brass" />
@@ -136,21 +145,10 @@ export function Landing() {
             ))}
           </ul>
         </div>
-        <div className="relative -mx-4 sm:mx-0">
+        <div className="relative -mx-2 sm:mx-0">
           <Sky />
         </div>
       </main>
     </div>
-  );
-}
-
-function GoogleG() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden>
-      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.7Z" />
-      <path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z" />
-      <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z" />
-      <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z" />
-    </svg>
   );
 }

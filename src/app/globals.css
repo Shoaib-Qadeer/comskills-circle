@@ -4,10 +4,10 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
-  "Star chart" palette — the class as a night sky you navigate by.
+  "Night sky" palette — the community as a circle of stars.
   night:   deep indigo ink (not black)       raised: lifted chart paper
   star:    cool starlight text                dim:    faded ink
-  brass:   compass brass (you, primary)       aurora: matches / positive
+  brass:   brass (you, primary)       aurora: matches / positive
   ember:   urgency
 */
 :root,

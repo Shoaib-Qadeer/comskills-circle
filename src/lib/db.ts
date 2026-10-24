@@ -3,8 +3,6 @@ import type {
   UserDoc,
   OpportunityDoc,
   MatchDoc,
-  ConnectionDoc,
-  IntroRequestDoc,
   UsageDoc,
   RateDoc,
 } from "./types";
@@ -24,7 +22,7 @@ function getClientPromise(): Promise<MongoClient> {
 
 export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
-  return client.db(process.env.MONGODB_DB || "compass");
+  return client.db(process.env.MONGODB_DB || "comskills");
 }
 
 export async function collections() {
@@ -33,8 +31,6 @@ export async function collections() {
     users: db.collection<UserDoc>("users") as Collection<UserDoc>,
     opportunities: db.collection<OpportunityDoc>("opportunities"),
     matches: db.collection<MatchDoc>("matches"),
-    connections: db.collection<ConnectionDoc>("connections"),
-    introRequests: db.collection<IntroRequestDoc>("introRequests"),
     usage: db.collection<UsageDoc>("usage"),
     rates: db.collection<RateDoc>("rates"),
   };
@@ -51,9 +47,6 @@ export async function ensureIndexes() {
     c.opportunities.createIndex({ createdAt: -1 }),
     c.matches.createIndex({ userId: 1, opportunityId: 1 }, { unique: true }),
     c.matches.createIndex({ opportunityId: 1 }),
-    c.connections.createIndex({ addedBy: 1 }),
-    c.introRequests.createIndex({ addedBy: 1, status: 1 }),
-    c.introRequests.createIndex({ requesterId: 1 }),
     c.rates.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     c.users.db.collection("llmLog").createIndex({ at: 1 }, { expireAfterSeconds: 14 * 24 * 3600 }),
     c.users.createIndex({ status: 1 }),

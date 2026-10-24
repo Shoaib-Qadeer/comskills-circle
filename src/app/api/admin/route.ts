@@ -14,7 +14,7 @@ export const GET = route(async () => {
   const c = await collections();
   const todayUtc = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
   const weekAgo = new Date(Date.now() - 7 * 86400_000);
-  const [users, pending, onboarded, active7, open, archived, matches, conns, intros, usage, settings] = await Promise.all([
+  const [users, pending, onboarded, active7, open, archived, matches, usage, settings] = await Promise.all([
     c.users.countDocuments({}),
     c.users.countDocuments({ status: "pending" }),
     c.users.countDocuments({ onboarded: true, status: { $nin: ["pending", "rejected"] } }),
@@ -22,13 +22,11 @@ export const GET = route(async () => {
     c.opportunities.countDocuments({ $or: [{ deadline: null }, { deadline: { $gte: todayUtc } }] }),
     c.opportunities.countDocuments({ deadline: { $lt: todayUtc } }),
     c.matches.countDocuments({}),
-    c.connections.countDocuments({}),
-    c.introRequests.countDocuments({ status: "pending" }),
     llmUsage(14),
     getSettings(),
   ]);
   return json({
-    counts: { users, pending, onboarded, active7, open, archived, matches, connections: conns, pendingIntros: intros },
+    counts: { users, pending, onboarded, active7, open, archived, matches },
     ai: {
       provider: llmProvider(),
       model: await activeModel(),

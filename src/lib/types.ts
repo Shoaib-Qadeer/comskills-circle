@@ -56,8 +56,6 @@ export interface OpportunityDoc {
   taggedFor: ObjectId[];
   posterNote: string | null;
   matchCount: number;
-  /** Added from the curated starter list (shown as "Added by Compass"). */
-  starter?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,33 +94,6 @@ export interface CoachAdvice {
   gaps: string[];
   firstStep: string;
   createdAt: string;
-}
-
-export interface ConnectionDoc {
-  _id: ObjectId;
-  name: string;
-  role: string | null;
-  organization: string | null;
-  location: string | null;
-  fields: string[];
-  linkedin: string | null;
-  contactPreference: "direct" | "ask_first";
-  note: string | null;
-  addedBy: ObjectId;
-  createdAt: Date;
-}
-
-export type IntroStatus = "pending" | "accepted" | "declined" | "done";
-
-export interface IntroRequestDoc {
-  _id: ObjectId;
-  connectionId: ObjectId;
-  requesterId: ObjectId;
-  addedBy: ObjectId;
-  message: string;
-  status: IntroStatus;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface UsageDoc {
@@ -212,7 +183,6 @@ export interface OpportunityDTO {
   matchCount?: number; // poster/admin only
   status: "open" | "expired";
   warnings: Warning[];
-  starter: boolean;
   createdAt: string;
 }
 
@@ -228,31 +198,6 @@ export interface MatchDTO {
   saved: boolean;
   coach: CoachAdvice | null;
   opportunity: OpportunityDTO;
-}
-
-export interface ConnectionDTO {
-  id: string;
-  name: string;
-  role: string | null;
-  organization: string | null;
-  location: string | null;
-  fields: string[];
-  linkedin: string | null;
-  contactPreference: "direct" | "ask_first";
-  note: string | null;
-  addedBy: { id: string; name: string; photoUrl: string | null } | null;
-  addedByMe: boolean;
-  overlap?: string[];
-}
-
-export interface IntroRequestDTO {
-  id: string;
-  connection: { id: string; name: string; role: string | null } | null;
-  requester: { id: string; name: string; photoUrl: string | null } | null;
-  owner: { id: string; name: string } | null;
-  message: string;
-  status: IntroStatus;
-  createdAt: string;
 }
 
 export interface ExtractedDraft {
@@ -284,12 +229,9 @@ export interface ConstellationDTO {
     links: Links;
     open: boolean;
     isMe: boolean;
-    connectionCount: number;
   }[];
   hubs: { slug: string; label: string; color: string; emoji: string; count: number }[];
   locations: { name: string; count: number }[];
-  connections: { id: string; name: string; field: string | null; addedBy: string }[];
   privateCount: number;
   meIncluded: boolean;
-  totals: { connections: number; connectionFields: number };
 }

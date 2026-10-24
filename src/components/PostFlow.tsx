@@ -78,7 +78,7 @@ export function PostFlow() {
   async function publish() {
     if (!draft) return;
     setError(null);
-    if (!looksLikeUrl(draft.url)) return setError("Add the link to the posting so classmates can apply.");
+    if (!looksLikeUrl(draft.url)) return setError("Add the link to the posting so members can apply.");
     if (draft.title.trim().length < 2) return setError("Add a title.");
     setPublishing(true);
     try {
@@ -118,7 +118,7 @@ export function PostFlow() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      {stage !== "done" && <PageHeader title="Share an opportunity" subtitle="Paste a link. Compass reads it and sends it to every classmate it fits." />}
+      {stage !== "done" && <PageHeader title="Share an opportunity" subtitle="Paste a link. Comskills Circle reads it and sends it to every member it fits." />}
 
       <AnimatePresence mode="wait">
         {(stage === "input" || stage === "reading" || stage === "paste") && (
@@ -192,7 +192,7 @@ export function PostFlow() {
                       <p className="mb-3 flex items-start gap-2 text-sm">
                         <ClipboardPaste className="mt-0.5 size-4 shrink-0 text-brass" />
                         <span>
-                          {pasteReason} Copy the text of the posting from the page and paste it here — Compass will read it the same way.
+                          {pasteReason} Copy the text of the posting from the page and paste it here — Comskills Circle will read it the same way.
                         </span>
                       </p>
                       <Textarea autoFocus rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="Paste the posting text…" maxLength={30000} />
@@ -221,7 +221,7 @@ export function PostFlow() {
               </div>
               <h2 className="font-display text-2xl font-semibold">Already shared</h2>
               <p className="mt-2 text-dim">
-                {dup.postedByName ? `${firstName(dup.postedByName)} shared this ${timeAgo(dup.createdAt)}` : "Someone in the class already shared this"}, so the right classmates have it.
+                {dup.postedByName ? `${firstName(dup.postedByName)} shared this ${timeAgo(dup.createdAt)}` : "Someone in the community already shared this"}, so the right members have it.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <Link href={`/opportunities?open=${dup.opportunityId}`} className="inline-flex h-10 items-center rounded-full bg-brass px-4 text-sm font-medium text-brass-ink">
@@ -270,7 +270,7 @@ export function PostFlow() {
                   "Looks right? It goes to everyone it fits."
                 )}</span>
               <Button size="lg" loading={publishing} onClick={publish}>
-                Publish to the class
+                Publish to the community
               </Button>
             </div>
           </motion.div>
@@ -290,13 +290,13 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
   return (
     <Panel className="mt-6 p-5 sm:p-7">
       <h2 className="font-display text-lg font-semibold">Thought of someone?</h2>
-      <p className="mt-1 text-sm text-dim">Optional. They’ll see it first, with your note. Compass still finds everyone else it fits.</p>
-      {people.length > 6 && <Input className="mt-4" placeholder="Search classmates…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search classmates" />}
+      <p className="mt-1 text-sm text-dim">Optional. They’ll see it first, with your note. Comskills Circle still finds everyone else it fits.</p>
+      {people.length > 6 && <Input className="mt-4" placeholder="Search members…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />}
       <div className="mt-4 flex flex-wrap gap-2">
         {!data ? (
           <Skeleton className="h-10 w-full" />
         ) : people.length === 0 ? (
-          <p className="text-sm text-faint">No visible classmates yet.</p>
+          <p className="text-sm text-faint">No visible members yet.</p>
         ) : (
           shown.map((p) => {
             const on = selected.includes(p.id);
@@ -317,7 +317,7 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
           })
         )}
       </div>
-      {data && data.privateCount > 0 && <p className="mt-3 text-xs text-faint">{data.privateCount} classmates keep their profiles private — they can still be matched automatically.</p>}
+      {data && data.privateCount > 0 && <p className="mt-3 text-xs text-faint">{data.privateCount} members keep their profiles private — they can still be matched automatically.</p>}
       <AnimatePresence>
         {selected.length > 0 && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
@@ -335,7 +335,7 @@ function TagClassmates({ selected, onChange, note, onNote }: { selected: string[
 function Done({ title, result, onAnother }: { title: string; result: { id: string; matchCount: number }; onAnother: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center py-10 text-center">
-      {/* The posted card drops onto the class stack */}
+      {/* The posted card drops onto the community stack */}
       <div className="relative mb-12 h-36 w-full max-w-sm">
         {[2, 1].map((i) => (
           <div key={i} className="absolute inset-x-0 top-0 mx-auto h-28 rounded-[var(--radius-panel)] border border-line bg-raised/60" style={{ transform: `translateY(${i * 12}px) scale(${1 - i * 0.05})` }} />
@@ -354,13 +354,13 @@ function Done({ title, result, onAnother }: { title: string; result: { id: strin
         <p className="mt-4 text-lg">
           {result.matchCount > 0 ? (
             <>
-              Relevant to <CountUp value={result.matchCount} className="font-display text-4xl font-semibold text-brass" /> classmate{result.matchCount === 1 ? "" : "s"}
+              Relevant to <CountUp value={result.matchCount} className="font-display text-4xl font-semibold text-brass" /> member{result.matchCount === 1 ? "" : "s"}
             </>
           ) : (
             "It’s on the board for everyone to browse."
           )}
         </p>
-        <p className="mt-2 text-sm text-dim">{result.matchCount > 0 ? "They’ll see it in their matches. Compass never shows you who." : "No strong matches yet — new classmates will be matched as they join."}</p>
+        <p className="mt-2 text-sm text-dim">{result.matchCount > 0 ? "They’ll see it in their matches. Comskills Circle never shows you who." : "No strong matches yet — new members will be matched as they join."}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Button onClick={onAnother}>Share another</Button>
           <Link href={`/opportunities?open=${result.id}`} className="inline-flex h-10 items-center rounded-full border border-line-strong px-4 text-sm font-medium hover:bg-raised-2">

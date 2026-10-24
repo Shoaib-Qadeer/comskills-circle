@@ -4,13 +4,13 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { motion } from "motion/react";
-import { CompassMark } from "./bits";
+import { CircleMark } from "./bits";
 import { Avatar, Button } from "./ui";
 import { firstName } from "@/lib/client";
 
 export function PendingView({ name, email, photoUrl, rejected }: { name: string; email: string; photoUrl: string | null; rejected: boolean }) {
   const router = useRouter();
-  // Check every 30 seconds whether the admin has let them in
+  // Check every 30 seconds whether an admin has let them in
   useEffect(() => {
     if (rejected) return;
     const t = setInterval(() => router.refresh(), 30_000);
@@ -39,21 +39,21 @@ export function PendingView({ name, email, photoUrl, rejected }: { name: string;
       {rejected ? (
         <>
           <h1 className="font-display text-3xl font-semibold">Access not approved</h1>
-          <p className="mt-3 text-dim">
-            Your request to join Compass with {email} wasn't approved. If you think this is a mistake, contact the M1 AIRE class admin.
+          <p className="mt-3 text-dim" aria-live="polite">
+            Your request to join Comskills Circle with {email} wasn't approved. If you think this is a mistake, message the Comskills team.
           </p>
         </>
       ) : (
         <>
           <h1 className="font-display text-3xl font-semibold">You're on the list, {firstName(name)}</h1>
-          <p className="mt-3 text-dim">
-            Compass is limited to the M1 AIRE class, so the admin approves each new account. This page opens automatically once you're in.
+          <p className="mt-3 text-dim" aria-live="polite">
+            Comskills Circle is for the Comskills Fellowship, so the team approves each new account. This page opens by itself once you're in. You can close it and come back later.
           </p>
           <p className="mt-6 text-sm text-faint">Signed in as {email}</p>
         </>
       )}
       <div className="mt-8 flex items-center gap-3">
-        <CompassMark size={24} />
+        <CircleMark size={24} />
         <Button variant="ghost" onClick={() => signOut({ callbackUrl: "/" })}>
           Sign out
         </Button>

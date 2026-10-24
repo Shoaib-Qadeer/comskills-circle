@@ -23,7 +23,7 @@ import { firstName, initials } from "@/lib/client";
 import { CountUp } from "./bits";
 import { Avatar, EmptyState, FieldChip, Segmented, Skeleton, Tag, cx } from "./ui";
 
-type Lens = "directions" | "destinations" | "network";
+type Lens = "directions" | "destinations";
 type Person = ConstellationDTO["people"][number];
 
 type GNode = SimulationNodeDatum & {
@@ -66,14 +66,6 @@ function buildGraph(data: ConstellationDTO, lens: Lens) {
     }
   }
 
-  if (lens === "network") {
-    for (const c of data.connections) {
-      if (!people.some((p) => p.id === c.addedBy)) continue;
-      const color = c.field ? getField(c.field).color : "#94A3B8";
-      nodes.push({ id: `sat:${c.id}`, kind: "sat", r: 7, color, label: c.name, owner: c.addedBy });
-      links.push({ id: `${c.addedBy}->sat:${c.id}`, source: c.addedBy, target: `sat:${c.id}`, color });
-    }
-  }
   return { nodes, links };
 }
 
@@ -115,7 +107,6 @@ export function ClassConstellation() {
             options={[
               { value: "directions", label: "Directions" },
               { value: "destinations", label: "Destinations" },
-              { value: "network", label: "Network" },
             ]}
           />
           <button
@@ -145,9 +136,9 @@ export function ClassConstellation() {
               <div className="grid grid-cols-2 gap-4 xl:grid-cols-1">
                 <div>
                   <p className="font-display text-3xl font-semibold text-brass">
-                    <CountUp value={lens === "network" ? data.totals.connections : stats.fields} />
+                    <CountUp value={stats.fields} />
                   </p>
-                  <p className="text-sm text-dim">{lens === "network" ? `people known, across ${data.totals.connectionFields} fields` : "fields explored"}</p>
+                  <p className="text-sm text-dim">fields explored</p>
                 </div>
                 {stats.top && (
                   <div>
@@ -575,7 +566,7 @@ function Graph({ data, lens, onSelect, selectedId }: { data: ConstellationDTO; l
             >
             <motion.g
               initial={reduced ? false : { opacity: 0, scale: 0.3 }}
-              animate={{ opacity: isLit(h.id) ? (lens === "network" && !hover ? 0.4 : 1) : 0.25, scale: 1 }}
+              animate={{ opacity: isLit(h.id) ? 1 : 0.25, scale: 1 }}
               transition={{ delay: entered ? 0 : i * 0.04, type: "spring", stiffness: 140, damping: 15 }}
             >
               <circle r={h.r * 2} fill={`url(#g-${cssId(h.id)})`} />
@@ -739,7 +730,6 @@ function ListView({ data, lens, onSelect }: { data: ConstellationDTO; lens: Lens
                 <button onClick={() => onSelect(p)} className="flex h-10 items-center gap-2 rounded-full border border-line-strong pl-1 pr-3 text-sm hover:bg-raised-2">
                   <Avatar name={p.name} src={p.photoUrl} size={30} ring={p.isMe ? "brass" : p.open ? "aurora" : undefined} />
                   {p.isMe ? "You" : p.name}
-                  {lens === "network" && p.connectionCount > 0 && <span className="text-xs text-faint">knows {p.connectionCount}</span>}
                 </button>
               </li>
             ))}
@@ -814,7 +804,6 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
                 <MapPin className="size-4 text-faint" /> {person.preferredLocations.join(", ")}
               </p>
             )}
-            {person.connectionCount > 0 && <p className="mt-2 text-sm text-dim">Has shared {person.connectionCount} connection{person.connectionCount === 1 ? "" : "s"} with the class.</p>}
 
             {Object.keys(links).length > 0 && (
               <div className="mt-6 flex flex-wrap gap-2">
@@ -830,11 +819,6 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
                 <Link href={`/opportunities/new?tag=${person.id}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brass font-medium text-brass-ink">
                   <Send className="size-4" /> Send {firstName(person.name)} an opportunity
                 </Link>
-                {person.connectionCount > 0 && (
-                  <Link href="/connections" className="inline-flex h-11 items-center justify-center rounded-full border border-line-strong text-sm hover:bg-raised-2">
-                    See the connections they shared
-                  </Link>
-                )}
               </div>
             )}
           </motion.aside>
