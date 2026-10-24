@@ -83,13 +83,14 @@ export function AiTab({ overview }: { overview?: Overview }) {
 
       <Panel className="p-5 sm:p-6">
         <h2 className="font-display text-lg font-semibold">Budget and behaviour</h2>
-        <p className="mt-1 text-sm text-dim">When a daily cap is reached, Comskills Circle switches to basic matching until midnight UTC. Your provider's own limits still apply.</p>
+        <p className="mt-1 text-sm text-dim">When a daily cap is reached, Comskills Circle switches to basic matching until midnight (Karachi time). Your provider's own limits still apply.</p>
         <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <NumberField id="calls" label="AI calls per day" value={ai.dailyCallLimit} min={0} max={100000} onChange={(v) => setAi({ dailyCallLimit: v })} />
           <NumberField id="tokens" label="Tokens per day" hint="input + output" value={ai.dailyTokenLimit} min={0} max={100000000} step={10000} onChange={(v) => setAi({ dailyTokenLimit: v })} />
           <NumberField id="threshold" label="Match threshold" hint="0–100" value={ai.matchThreshold} min={1} max={100} onChange={(v) => setAi({ matchThreshold: v })} />
           <NumberField id="chars" label="Characters read per link" value={ai.extractionChars} min={2000} max={120000} step={1000} onChange={(v) => setAi({ extractionChars: v })} />
-          <NumberField id="batch" label="Opportunities per matching call" value={ai.profileBatchSize} min={1} max={50} onChange={(v) => setAi({ profileBatchSize: v })} />
+          <NumberField id="batch" label="Items per call (one profile)" hint="projects or opportunities" value={ai.profileBatchSize} min={1} max={50} onChange={(v) => setAi({ profileBatchSize: v })} />
+          <NumberField id="chunk" label="Profiles per call (one post)" hint="about 40 is safe" value={ai.matchChunkSize} min={5} max={80} onChange={(v) => setAi({ matchChunkSize: v })} />
           <NumberField id="temp" label="Temperature" hint="0 = consistent" value={ai.temperature} min={0} max={1} step={0.05} onChange={(v) => setAi({ temperature: v })} />
         </div>
       </Panel>
@@ -111,6 +112,11 @@ export function AiTab({ overview }: { overview?: Overview }) {
           <NumberField id="l-post" label="Opportunities shared" value={draft.limits.postPerDay} min={0} max={1000} onChange={(v) => setLimits({ postPerDay: v })} />
           <NumberField id="l-connect" label="Connect requests" value={draft.limits.connectPerDay} min={0} max={1000} onChange={(v) => setLimits({ connectPerDay: v })} />
           <NumberField id="l-coach" label="Approach advice" value={draft.limits.coachPerDay} min={0} max={1000} onChange={(v) => setLimits({ coachPerDay: v })} />
+          <NumberField id="l-proposals" label="Projects proposed" value={draft.limits.proposalsPerDay} min={0} max={1000} onChange={(v) => setLimits({ proposalsPerDay: v })} />
+          <NumberField id="l-interest" label="'I'm interested' clicks" value={draft.limits.interestPerDay} min={0} max={1000} onChange={(v) => setLimits({ interestPerDay: v })} />
+          <NumberField id="l-announce" label="News posts (team)" value={draft.limits.announcePerDay} min={0} max={1000} onChange={(v) => setLimits({ announcePerDay: v })} />
+          <NumberField id="l-tracker" label="Tracker entries added" value={draft.limits.trackerPerDay} min={0} max={1000} onChange={(v) => setLimits({ trackerPerDay: v })} />
+          <NumberField id="l-reports" label="Reports sent" value={draft.limits.reportsPerDay} min={0} max={1000} onChange={(v) => setLimits({ reportsPerDay: v })} />
         </div>
       </Panel>
 

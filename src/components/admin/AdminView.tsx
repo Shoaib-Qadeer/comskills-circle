@@ -11,6 +11,7 @@ import { PeopleTab } from "./PeopleTab";
 import { AccessTab } from "./AccessTab";
 import { AiTab } from "./AiTab";
 import { ContentTab } from "./ContentTab";
+import { EmailTab } from "./EmailTab";
 
 const TABS: AdminTab[] = ["overview", "people", "access", "email", "ai", "content"];
 
@@ -36,8 +37,9 @@ export function AdminView() {
             { value: "overview", label: "Overview" },
             { value: "people", label: "People", count: overview?.counts.pending },
             { value: "access", label: "Access" },
+            { value: "email", label: "Email" },
             { value: "ai", label: "AI" },
-            { value: "content", label: "Content" },
+            { value: "content", label: "Content", count: overview?.counts.openReports || undefined },
           ]}
         />
       </div>
@@ -46,6 +48,7 @@ export function AdminView() {
           {tab === "overview" && <OverviewTab data={overview} go={setTab} />}
           {tab === "people" && <PeopleTab />}
           {tab === "access" && <AccessTab />}
+          {tab === "email" && <EmailTab />}
           {tab === "ai" && <AiTab overview={overview} />}
           {tab === "content" && <ContentTab />}
         </motion.div>

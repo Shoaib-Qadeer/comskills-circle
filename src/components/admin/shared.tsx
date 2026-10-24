@@ -10,7 +10,12 @@ import { CountUp } from "../bits";
 import { Button, Input, Label, cx } from "../ui";
 
 export type Overview = {
-  counts: { users: number; pending: number; onboarded: number; active7: number; open: number; archived: number; matches: number };
+  counts: { users: number; pending: number; onboarded: number; active7: number; team: number; open: number; archived: number; matches: number; openReports: number; announcements: number; photos: number };
+  proposalsByStatus: Record<string, number>;
+  scholarshipsByStage: Record<string, number>;
+  email: { sent: number; dailyLimit: number; normalCap: number; configured: boolean };
+  storage: { usedBytes: number | null; limitBytes: number };
+  budgets: { vercel: string; atlasBytes: number; gemini: { rpm: number; tpm: number; rpd: number }; gmailPerDay: number };
   ai: {
     provider: string;
     model: string;
