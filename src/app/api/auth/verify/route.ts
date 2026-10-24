@@ -1,9 +1,12 @@
+import { passwordLoginEnabled, PASSWORD_LOGIN_OFF_MESSAGE } from "@/lib/auth-config";
+import { ApiError } from "@/lib/auth";
 import { route, readJson, json } from "@/lib/api";
 import { verifyEmail, verifySchema } from "@/lib/accounts";
 import { limitWindow, clientIp } from "@/lib/ratelimit";
 
 /** Checks the code. Returns a short-lived one-time token the browser exchanges for a session. */
 export const POST = route(async (req) => {
+  if (!passwordLoginEnabled()) throw new ApiError(404, PASSWORD_LOGIN_OFF_MESSAGE);
   const body = await readJson(req, verifySchema);
   await limitWindow("verify-ip", clientIp(req.headers), 60, "15min", "Too many tries from this network. Wait 15 minutes.");
   const r = await verifyEmail(body.email, body.code);

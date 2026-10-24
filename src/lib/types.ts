@@ -330,6 +330,8 @@ export interface RateDoc {
 export interface MeDTO {
   id: string;
   email: string;
+  /** False for accounts made with Google (no password to change). */
+  hasPassword: boolean;
   name: string;
   photoUrl: string | null;
   role: Role;

@@ -75,6 +75,24 @@ Google only gives an App Password to accounts that have 2-Step Verification on, 
 
 The app works without the AI too. If the key is missing or the daily limit is reached, it falls back to simpler matching (shown as "basic match") and members fill opportunity details by hand.
 
+### Step 3b. Google sign-in (how members log in)
+
+Members sign in with **Continue with Google**. The same button creates their account, which then waits for approval. Google has already checked their email, so there are no codes to type.
+
+1. Go to <https://console.cloud.google.com> as comskills.official@gmail.com and select the project AI Studio created (or create one called `Comskills Circle`).
+2. **APIs & Services → OAuth consent screen** (now called **Google Auth Platform → Branding / Audience**):
+   - App name `Comskills Circle`, support email comskills.official@gmail.com
+   - Audience: **External**
+   - Developer contact: comskills.official@gmail.com
+3. **Audience → Publish app** (status **In production**). While it's still "Testing", only the test users you list can sign in. The app only asks for name and email (`openid email profile`), so Google doesn't need to review it.
+4. **Clients → Create client → Web application**, name `Comskills Circle web`:
+   - Authorized JavaScript origins: `https://comskills-circle.vercel.app`
+   - Authorized redirect URIs: `https://comskills-circle.vercel.app/api/auth/callback/google`
+   - (For local development, also add `http://localhost:3000` and `http://localhost:3000/api/auth/callback/google`.)
+5. Copy the **Client ID** and **Client secret** into Vercel as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then redeploy.
+
+Once both are set, email + password sign-up is switched off. Set `PASSWORD_LOGIN=on` if you want both. If the Google keys are missing, the app falls back to email + password, so nobody is locked out.
+
 ### Step 4. Put the code on GitHub and deploy on Vercel
 
 **4a. Put the code on GitHub**
@@ -102,6 +120,8 @@ You need two long random strings. Open <https://generate-secret.vercel.app/48> t
 | `MONGODB_DB` | `comskills` |
 | `NEXTAUTH_SECRET` | the first random string |
 | `NEXTAUTH_URL` | leave it out for the first deploy (see 4d) |
+| `GOOGLE_CLIENT_ID` | from Step 3b |
+| `GOOGLE_CLIENT_SECRET` | from Step 3b |
 | `ADMIN_EMAILS` | `comskills.official@gmail.com,shoaibqadeer0342@gmail.com` |
 | `GMAIL_USER` | `comskills.official@gmail.com` |
 | `GMAIL_APP_PASSWORD` | from Step 2 (no spaces) |
@@ -134,11 +154,9 @@ Check it under **Vercel → your project → Settings → Cron Jobs**. It only w
 
 ### Step 5. First sign-up: become the admin
 
-1. Open your site and click **Join**.
-2. Sign up with **shoaibqadeer0342@gmail.com** or **comskills.official@gmail.com**, the two addresses in `ADMIN_EMAILS`.
-3. Enter the 6-digit code from the email.
-   - **No email?** Look in spam, then check Step 2. **Admin → Email → Send me a test** shows Gmail's exact error.
-4. Admin accounts are approved automatically. Finish your profile, then open **Admin** from the menu.
+1. Open your site, click **Join → Continue with Google**, and choose **shoaibqadeer0342@gmail.com** or **comskills.official@gmail.com** (the two addresses in `ADMIN_EMAILS`).
+2. (Only with `PASSWORD_LOGIN=on` and email sign-up: enter the 6-digit code from the email; if none arrives, check spam and Step 2.)
+3. Admin accounts are approved automatically. Finish your profile, then open **Admin** from the menu.
 
 Being an admin comes only from `ADMIN_EMAILS`. It's never stored in the database, so to add or remove an admin you edit that variable in Vercel and redeploy.
 
@@ -201,6 +219,9 @@ That's it. The rest of this README is for when something goes wrong, and for dev
 | AI calls show **429** / "Resource exhausted" | You hit Gemini's **rate limit** (per minute or per day) | Nothing breaks: the app waits 4 seconds, retries once, then uses basic matching. If it happens daily, lower Admin → AI → "AI calls per day", raise "Profiles per call", or enable billing. |
 | AI calls show **400 or 403** / "API key not valid" | Wrong or deleted key | Create a new key in AI Studio, update `LLM_API_KEY` and redeploy. |
 | Pushes to GitHub don't deploy, or Vercel says the deployment was **blocked** | Vercel Hobby only deploys commits authored by the connected GitHub account | Make the repository public, or commit as the same GitHub account that's linked to Vercel. |
+| Google shows **Error 400: redirect_uri_mismatch** | The redirect URI in Google Cloud doesn't match the site exactly | Add `https://<your-site>/api/auth/callback/google` to the OAuth client (exact, https, no trailing slash). |
+| Google says **"Access blocked: app is in testing"** or only some people can sign in | The OAuth app is still in Testing | Google Auth Platform → Audience → **Publish app**. |
+| Sign-in page shows "Google sign-in isn't set up correctly" | `GOOGLE_CLIENT_ID`/`SECRET` wrong, or `NEXTAUTH_URL` missing | Check both in Vercel and redeploy. |
 | Login works but you're sent back to the login page | `NEXTAUTH_URL` doesn't match the address you're using, or it has a trailing `/` | Set it to the exact `https://…` address (no slash) and redeploy. |
 | Digests never arrive | The daily job isn't running, or members turned digests off | Check `CRON_SECRET` and Vercel → Settings → Cron Jobs. Use Admin → Email → Preview. Digests skip people with nothing new. |
 | "We've hit today's email limit" | The daily email cap was reached | It resets at midnight Pakistan time. Codes have their own reserve (Admin → Email). |

@@ -1,3 +1,4 @@
+import { passwordLoginEnabled, PASSWORD_LOGIN_OFF_MESSAGE } from "@/lib/auth-config";
 import { z } from "zod";
 import { requireUser, ApiError } from "@/lib/auth";
 import { route, readJson, json } from "@/lib/api";
@@ -20,6 +21,7 @@ const schema = z.object({
 
 /** Changes the password and signs out every other device. Returns a token to stay signed in here. */
 export const POST = route(async (req) => {
+  if (!passwordLoginEnabled()) throw new ApiError(404, PASSWORD_LOGIN_OFF_MESSAGE);
   const user = await requireUser({ onboarded: false, approved: false });
   const body = await readJson(req, schema);
   await limitWindow("change-password", String(user._id), 10, "hour", "Too many tries. Wait an hour.");

@@ -1,6 +1,8 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import { googleConfigured, passwordLoginEnabled } from "./auth-config";
 import { collections, ensureIndexes, toObjectId } from "./db";
 import type { AccessStatus, UserDoc } from "./types";
 
@@ -41,7 +43,58 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   pages: { signIn: "/login", error: "/login" },
   providers: [
-    CredentialsProvider({
+    ...(googleConfigured()
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            // Always show the account chooser, so people on shared phones pick the right account
+            authorization: { params: { prompt: "select_account" } },
+          }),
+        ]
+      : []),
+    ...(passwordLoginEnabled() ? [passwordProvider()] : []),
+  ],
+  callbacks: {
+    async signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      try {
+        const { upsertGoogleUser } = await import("./google-auth");
+        const u = await upsertGoogleUser(profile as { email?: string; email_verified?: boolean; name?: string });
+        return u ? true : "/login?error=GoogleUnverified";
+      } catch (err) {
+        console.error("[auth] google sign-in failed", err);
+        return "/login?error=Server";
+      }
+    },
+    async jwt({ token, user, account }) {
+      if (account?.provider === "google") {
+        // Google's user id isn't ours: look the account up by its (verified) email
+        const { normalizeEmail } = await import("./codes");
+        const email = normalizeEmail(String(token.email || ""));
+        const u = await (await collections()).users.findOne({ email }, { projection: { _id: 1, sessionVersion: 1 } });
+        token.userId = u ? String(u._id) : "";
+        token.sv = u?.sessionVersion ?? 0;
+        token.email = email;
+      } else if (user) {
+        token.userId = user.id;
+        token.sv = user.sv ?? 0;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.userId as string) || "";
+        session.user.sv = typeof token.sv === "number" ? token.sv : 0;
+        session.user.isAdmin = isAdminEmail(token.email);
+      }
+      return session;
+    },
+  },
+};
+
+function passwordProvider() {
+  return CredentialsProvider({
       id: "credentials",
       name: "Email and password",
       credentials: {
@@ -88,26 +141,8 @@ export const authOptions: NextAuthOptions = {
         if (!u.emailVerifiedAt) throw new Error("unverified");
         return { id: String(u._id), email: u.email, name: u.name, sv: u.sessionVersion ?? 0 };
       },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.userId = user.id;
-        token.sv = user.sv ?? 0;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = (token.userId as string) || "";
-        session.user.sv = typeof token.sv === "number" ? token.sv : 0;
-        session.user.isAdmin = isAdminEmail(token.email);
-      }
-      return session;
-    },
-  },
-};
+    });
+}
 
 /** Returns the signed-in user's document, or null (also null when the session is from before a password change). */
 export async function getCurrentUser(): Promise<UserDoc | null> {

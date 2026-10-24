@@ -122,7 +122,7 @@ export function SettingsView() {
       </Section>
 
       <NotificationsSection me={me} onSaved={(notify) => mutate({ ...me, notify }, { revalidate: false })} />
-      <PasswordSection email={me.email} />
+      {me.hasPassword && <PasswordSection email={me.email} />}
       <AppSection />
 
       <Panel as="section" className="border-ember/30 p-4 sm:p-7">

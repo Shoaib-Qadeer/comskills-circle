@@ -41,6 +41,7 @@ export function meDTO(u: UserDoc, settings: Pick<AppSettings, "batches"> | null 
   return {
     id: String(u._id),
     email: u.email,
+    hasPassword: Boolean(u.passwordHash),
     name: u.name,
     photoUrl: photoUrlFor(u),
     role: u.role ?? "participant",
