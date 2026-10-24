@@ -1,0 +1,176 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+  "Star chart" palette — the class as a night sky you navigate by.
+  night:   deep indigo ink (not black)       raised: lifted chart paper
+  star:    cool starlight text                dim:    faded ink
+  brass:   compass brass (you, primary)       aurora: matches / positive
+  ember:   urgency
+*/
+:root,
+:root[data-theme="dark"] {
+  --night: #0e1530;
+  --night-2: #121b3c;
+  --raised: #17214a;
+  --raised-2: #1d2856;
+  --line: rgb(214 222 255 / 0.1);
+  --line-strong: rgb(214 222 255 / 0.2);
+  --star: #eef0ff;
+  --dim: #9aa3c7;
+  --faint: #6b7499;
+  --brass: #f2c14e;
+  --brass-ink: #2a1f00;
+  --aurora: #5eead4;
+  --ember: #ff7a6b;
+  --violet: #a78bfa;
+  --glow: rgb(242 193 78 / 0.35);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --night: #f3f4fa;
+  --night-2: #eceef8;
+  --raised: #ffffff;
+  --raised-2: #f6f7fd;
+  --line: rgb(20 26 51 / 0.1);
+  --line-strong: rgb(20 26 51 / 0.2);
+  --star: #141a33;
+  --dim: #4f577a;
+  --faint: #7b83a6;
+  --brass: #b7860b;
+  --brass-ink: #ffffff;
+  --aurora: #0f9e8a;
+  --ember: #d9473a;
+  --violet: #6d4fd8;
+  --glow: rgb(183 134 11 / 0.25);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-night: var(--night);
+  --color-night-2: var(--night-2);
+  --color-raised: var(--raised);
+  --color-raised-2: var(--raised-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-star: var(--star);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-brass: var(--brass);
+  --color-brass-ink: var(--brass-ink);
+  --color-aurora: var(--aurora);
+  --color-ember: var(--ember);
+  --color-violet: var(--violet);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", var(--font-geist-sans), ui-sans-serif, sans-serif;
+  --radius-panel: 22px;
+  --radius-field: 12px;
+}
+
+html {
+  background: var(--night);
+}
+
+body {
+  background: var(--night);
+  color: var(--star);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--brass);
+  color: var(--brass-ink);
+}
+
+svg g[role="button"]:focus, svg g[role="button"]:focus-visible { outline: none; }
+svg g[role="button"]:focus-visible > circle:first-of-type { stroke: var(--brass); }
+
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The faint sky behind every page — static, so it never competes with content */
+.sky {
+  background-color: var(--night);
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgb(238 240 255 / 0.5), transparent 60%),
+    radial-gradient(1px 1px at 72% 12%, rgb(238 240 255 / 0.35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 38% 64%, rgb(238 240 255 / 0.3), transparent 60%),
+    radial-gradient(1px 1px at 88% 72%, rgb(238 240 255 / 0.4), transparent 60%),
+    radial-gradient(1px 1px at 55% 35%, rgb(238 240 255 / 0.25), transparent 60%),
+    radial-gradient(1px 1px at 22% 86%, rgb(238 240 255 / 0.3), transparent 60%),
+    radial-gradient(900px 600px at 85% -10%, rgb(167 139 250 / 0.12), transparent 70%),
+    radial-gradient(700px 500px at -10% 110%, rgb(94 234 212 / 0.08), transparent 70%);
+  background-attachment: fixed;
+}
+:root[data-theme="light"] .sky {
+  background-image:
+    radial-gradient(900px 600px at 85% -10%, rgb(109 79 216 / 0.07), transparent 70%),
+    radial-gradient(700px 500px at -10% 110%, rgb(15 158 138 / 0.06), transparent 70%);
+}
+
+/* Shimmer for loading skeletons */
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--raised) 0%, var(--raised-2) 40%, var(--raised) 80%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+
+@keyframes urgent-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 122 107 / 0.45); }
+  50% { box-shadow: 0 0 0 6px rgb(255 122 107 / 0); }
+}
+.urgent-pulse { animation: urgent-pulse 2s ease-in-out infinite; }
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(0, -3px); }
+}
+.drift { animation: drift 7s ease-in-out infinite; }
+
+@keyframes slow-spin { to { transform: rotate(360deg); } }
+.slow-spin { animation: slow-spin 18s linear infinite; transform-box: fill-box; transform-origin: center; }
+
+@keyframes fab-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--glow), 0 10px 30px -10px var(--glow); }
+  50% { box-shadow: 0 0 0 10px rgb(0 0 0 / 0), 0 10px 30px -10px var(--glow); }
+}
+.fab-pulse { animation: fab-pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+:root[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator { filter: none; }
