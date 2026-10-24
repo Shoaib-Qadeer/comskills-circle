@@ -552,20 +552,23 @@ export interface ExtractedDraft {
   summary: string;
 }
 
-export interface ConstellationDTO {
+export type MapLens = "field" | "batch" | "project";
+export type MapHub = { id: string; label: string; color: string; emoji: string; count: number };
+export interface CommunityMapDTO {
   people: {
     id: string;
     name: string;
     photoUrl: string | null;
     headline: string;
     fields: string[];
-    preferredLocations: string[];
+    batchLabel: string | null;
+    teamTitle: string | null;
+    isTeam: boolean;
+    /** Hub ids this person belongs to, per lens. */
+    hubs: Record<MapLens, string[]>;
     links: Links;
     open: boolean;
     isMe: boolean;
   }[];
-  hubs: { slug: string; label: string; color: string; emoji: string; count: number }[];
-  locations: { name: string; count: number }[];
-  privateCount: number;
-  meIncluded: boolean;
+  lenses: Record<MapLens, MapHub[]>;
 }

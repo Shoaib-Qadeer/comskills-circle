@@ -16,15 +16,14 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from "d3-force";
-import { Code2, Crosshair, Globe, UserRound, List, Minus, Plus, Send, Sparkles, Waypoints, X, MapPin } from "lucide-react";
-import type { ConstellationDTO } from "@/lib/types";
-import { getField } from "@/lib/taxonomy";
+import { Code2, Crosshair, Globe, UserRound, List, Minus, Plus, Send, Sparkles, Waypoints, X, GraduationCap, Star } from "lucide-react";
+import type { CommunityMapDTO, MapLens } from "@/lib/types";
 import { firstName, initials } from "@/lib/client";
 import { CountUp } from "./bits";
 import { Avatar, EmptyState, FieldChip, Segmented, Skeleton, Tag, cx } from "./ui";
 
-type Lens = "directions" | "destinations";
-type Person = ConstellationDTO["people"][number];
+type Lens = MapLens;
+type Person = CommunityMapDTO["people"][number];
 
 type GNode = SimulationNodeDatum & {
   id: string;
@@ -39,48 +38,41 @@ type GNode = SimulationNodeDatum & {
 };
 type GLink = SimulationLinkDatum<GNode> & { id: string; color: string; source: string | GNode; target: string | GNode };
 
-const LOCATION_COLORS = ["#F2C14E", "#5EEAD4", "#A78BFA", "#38BDF8", "#FB7185", "#4ADE80", "#FDBA74", "#C084FC"];
 const PERSON_R = 20;
 
-function buildGraph(data: ConstellationDTO, lens: Lens) {
+function buildGraph(data: CommunityMapDTO, lens: Lens) {
   const nodes: GNode[] = [];
   const links: GLink[] = [];
-  const people = data.people;
-
-  if (lens === "destinations") {
-    data.locations.forEach((l, i) => {
-      nodes.push({ id: `hub:loc:${l.name}`, kind: "hub", r: Math.min(42, 14 + l.count * 4), color: LOCATION_COLORS[i % LOCATION_COLORS.length], label: l.name, emoji: "📍", count: l.count });
-    });
-  } else {
-    data.hubs.forEach((h) => nodes.push({ id: `hub:${h.slug}`, kind: "hub", r: Math.min(42, 14 + h.count * 4), color: h.color, label: h.label, emoji: h.emoji, count: h.count }));
-  }
-  const hubIds = new Set(nodes.map((n) => n.id));
-
-  for (const p of people) {
+  data.lenses[lens].forEach((h) => nodes.push({ id: `hub:${h.id}`, kind: "hub", r: Math.min(42, 14 + h.count * 4), color: h.color, label: h.label, emoji: h.emoji, count: h.count }));
+  const hubById = new Map(nodes.map((n) => [n.id, n]));
+  for (const p of data.people) {
+    const targets = p.hubs[lens].map((h) => `hub:${h}`).filter((t) => hubById.has(t));
+    // The Projects lens only shows people who are on a project (and you)
+    if (lens === "project" && !targets.length && !p.isMe) continue;
     nodes.push({ id: p.id, kind: "person", r: PERSON_R, color: "var(--star)", label: p.name, person: p });
-    const targets = lens === "destinations" ? p.preferredLocations.map((l) => `hub:loc:${l}`) : p.fields.map((f) => `hub:${f}`);
-    for (const t of targets) {
-      if (!hubIds.has(t)) continue;
-      const hub = nodes.find((n) => n.id === t)!;
-      links.push({ id: `${p.id}->${t}`, source: p.id, target: t, color: hub.color });
-    }
+    for (const t of targets) links.push({ id: `${p.id}->${t}`, source: p.id, target: t, color: hubById.get(t)!.color });
   }
-
   return { nodes, links };
 }
+
+const LENS_TEXT: Record<Lens, { title: string; sub: string; aria: string }> = {
+  field: { title: "Where our interests meet", sub: "Every member, pulled toward the fields they care about. Close together means similar interests.", aria: "field" },
+  batch: { title: "Our batches", sub: "Members grouped by fellowship batch, with the Comskills team in the middle of it all.", aria: "batch" },
+  project: { title: "Who's building what", sub: "Active projects and the people working on them. Join one from the Projects page.", aria: "project" },
+};
 
 const idOf = (x: string | GNode) => (typeof x === "string" ? x : x.id);
 
 export function ClassConstellation() {
-  const { data, isLoading } = useSWR<ConstellationDTO>("/api/constellation");
-  const [lens, setLens] = useState<Lens>("directions");
+  const { data, isLoading, error, mutate } = useSWR<CommunityMapDTO>("/api/community-map");
+  const [lens, setLens] = useState<Lens>("field");
   const [listView, setListView] = useState(false);
   const [selected, setSelected] = useState<Person | null>(null);
   const me = data?.people.find((p) => p.isMe) ?? null;
 
   const stats = useMemo(() => {
     if (!data) return null;
-    const top = data.hubs[0];
+    const top = data.lenses.field[0];
     const closest = me
       ? data.people
           .filter((p) => !p.isMe)
@@ -89,15 +81,15 @@ export function ClassConstellation() {
           .sort((a, b) => b.n - a.n)
           .slice(0, 3)
       : [];
-    return { fields: data.hubs.length, top, closest };
+    return { fields: data.lenses.field.length, projects: data.lenses.project.length, top, closest };
   }, [data, me]);
 
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-xl">
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">Where the class is heading</h1>
-          <p className="mt-2 text-dim">Everyone who shares their profile, pulled toward the fields they care about. Close together means similar directions.</p>
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{LENS_TEXT[lens].title}</h1>
+          <p className="mt-2 text-dim">{LENS_TEXT[lens].sub}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
@@ -105,30 +97,39 @@ export function ClassConstellation() {
             value={lens}
             onChange={(v) => setLens(v)}
             options={[
-              { value: "directions", label: "Directions" },
-              { value: "destinations", label: "Destinations" },
+              { value: "field", label: "Field" },
+              { value: "batch", label: "Batch" },
+              { value: "project", label: "Projects" },
             ]}
           />
           <button
             onClick={() => setListView((v) => !v)}
             aria-pressed={listView}
-            className={cx("inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm", listView ? "border-brass text-brass" : "border-line-strong text-dim hover:text-star")}
+            className={cx("inline-flex h-11 items-center gap-2 rounded-full border px-3.5 text-sm sm:h-10", listView ? "border-brass text-brass" : "border-line-strong text-dim hover:text-star")}
           >
             <List className="size-4" /> List view
           </button>
         </div>
       </header>
 
-      {isLoading || !data ? (
+      {error && !data ? (
+        <EmptyState icon={<Waypoints className="size-10" />} title="Couldn't load the map" action={<button onClick={() => mutate()} className="inline-flex h-11 items-center rounded-full border border-line-strong px-5 text-sm">Try again</button>}>
+          Check your connection and try again.
+        </EmptyState>
+      ) : isLoading || !data ? (
         <Skeleton className="h-[560px] rounded-[var(--radius-panel)]" />
-      ) : data.people.length === 0 && data.privateCount === 0 ? (
-        <EmptyState icon={<Waypoints className="size-10" />} title="The sky is empty for now">
-          As classmates finish onboarding with a Class or Open profile, they appear here.
+      ) : data.people.length === 0 ? (
+        <EmptyState icon={<Waypoints className="size-10" />} title="The map is empty for now">
+          Members appear here once they're approved and have finished their profile.
+        </EmptyState>
+      ) : lens === "project" && data.lenses.project.length === 0 ? (
+        <EmptyState icon={<Waypoints className="size-10" />} title="No active projects yet" action={<Link href="/projects/new" className="inline-flex h-11 items-center rounded-full bg-brass px-5 font-medium text-brass-ink">Propose a project</Link>}>
+          When members start projects and form teams, you'll see who is working with whom.
         </EmptyState>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1fr_280px]">
           <div className="relative min-w-0">
-            {!listView && <p className="mb-2 hidden text-xs text-faint sm:block">Drag to explore, Ctrl + scroll to zoom, click someone to see their direction.</p>}
+            {!listView && <p className="mb-2 hidden text-xs text-faint sm:block">Drag to explore, Ctrl + scroll to zoom, tap someone to see more.</p>}
             {listView ? <ListView data={data} lens={lens} onSelect={setSelected} /> : <Graph data={data} lens={lens} onSelect={setSelected} selectedId={selected?.id ?? null} />}
           </div>
           <aside className="space-y-6">
@@ -172,12 +173,9 @@ export function ClassConstellation() {
                 </ul>
               </div>
             )}
-            {me === null && (
-              <p className="rounded-2xl border border-dashed border-line-strong p-4 text-sm text-dim">
-                Your profile is private, so you’re not on the map.{" "}
-                <Link href="/settings" className="text-brass hover:underline">
-                  Change visibility
-                </Link>
+            {stats && stats.projects > 0 && (
+              <p className="text-sm text-dim">
+                <span className="font-display text-2xl font-semibold text-star">{stats.projects}</span> active project{stats.projects === 1 ? "" : "s"}
               </p>
             )}
             <div className="space-y-2 text-xs text-faint">
@@ -185,7 +183,7 @@ export function ClassConstellation() {
                 <span className="inline-block size-3 rounded-full border-2 border-brass" /> You
               </p>
               <p className="flex items-center gap-2">
-                <span className="inline-block size-3 rounded-full border border-dashed border-aurora" /> Open to collaborate
+                <span className="inline-block size-3 rounded-full border border-dashed border-aurora" /> Open to volunteer
               </p>
             </div>
           </aside>
@@ -199,7 +197,7 @@ export function ClassConstellation() {
 
 /* ---------------------------------------------------------------- graph */
 
-function Graph({ data, lens, onSelect, selectedId }: { data: ConstellationDTO; lens: Lens; onSelect: (p: Person) => void; selectedId: string | null }) {
+function Graph({ data, lens, onSelect, selectedId }: { data: CommunityMapDTO; lens: Lens; onSelect: (p: Person) => void; selectedId: string | null }) {
   const reduced = useReducedMotion();
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -502,7 +500,7 @@ function Graph({ data, lens, onSelect, selectedId }: { data: ConstellationDTO; l
         height={size.h}
         className="block touch-none select-none"
         role="img"
-        aria-label={`Constellation of ${data.people.length} classmates grouped by ${lens === "destinations" ? "where they want to go" : "field"}. Use List view for an accessible version.`}
+        aria-label={`Map of ${data.people.length} members grouped by ${LENS_TEXT[lens].aria}. Use List view for an accessible version.`}
         onPointerDown={onBgDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -663,25 +661,11 @@ function Graph({ data, lens, onSelect, selectedId }: { data: ConstellationDTO; l
           { icon: Minus, label: "Zoom out", on: () => zoomAt(1 / 1.2) },
           { icon: Crosshair, label: "Recenter", on: recenter },
         ].map((b) => (
-          <button key={b.label} onClick={b.on} aria-label={b.label} title={b.label} className="grid size-9 place-items-center rounded-full border border-line-strong bg-raised/90 text-dim backdrop-blur hover:text-star">
+          <button key={b.label} onClick={b.on} aria-label={b.label} title={b.label} className="grid size-11 place-items-center rounded-full border border-line-strong bg-raised/90 text-dim backdrop-blur hover:text-star">
             <b.icon className="size-4" />
           </button>
         ))}
       </div>
-      {/* private classmates: anonymous, never linked to anything */}
-      {data.privateCount > 0 && (
-        <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-3 rounded-full border border-line bg-night/80 py-1.5 pl-2 pr-3.5 backdrop-blur" aria-label={`${data.privateCount} classmates exploring privately`}>
-          <svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden>
-            <g className={reduced ? undefined : "slow-spin"}>
-              {Array.from({ length: Math.min(data.privateCount, 10) }).map((_, i, arr) => {
-                const a = (i / arr.length) * Math.PI * 2;
-                return <circle key={i} cx={Math.cos(a) * 10} cy={Math.sin(a) * 10} r={2.2} fill="var(--star)" fillOpacity={0.6} />;
-              })}
-            </g>
-          </svg>
-          <span className="text-xs text-dim">+{data.privateCount} classmates exploring privately</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -712,13 +696,10 @@ function Tooltip({ node, view, size, wrap }: { node: GNode; view: { k: number; x
 
 /* ---------------------------------------------------------------- list view (accessible) */
 
-function ListView({ data, lens, onSelect }: { data: ConstellationDTO; lens: Lens; onSelect: (p: Person) => void }) {
-  const groups =
-    lens === "destinations"
-      ? data.locations.map((l) => ({ key: l.name, title: `📍 ${l.name}`, people: data.people.filter((p) => p.preferredLocations.includes(l.name)) }))
-      : data.hubs.map((h) => ({ key: h.slug, title: `${h.emoji} ${h.label}`, people: data.people.filter((p) => p.fields.includes(h.slug)) }));
+function ListView({ data, lens, onSelect }: { data: CommunityMapDTO; lens: Lens; onSelect: (p: Person) => void }) {
+  const groups = data.lenses[lens].map((h) => ({ key: h.id, title: `${h.emoji} ${h.label}`, people: data.people.filter((p) => p.hubs[lens].includes(h.id)) }));
   return (
-    <div className="space-y-6 rounded-[var(--radius-panel)] border border-line p-5">
+    <div className="space-y-6 rounded-[var(--radius-panel)] border border-line p-4 sm:p-5">
       {groups.map((g) => (
         <section key={g.key}>
           <h2 className="mb-2 flex items-baseline gap-2 font-medium">
@@ -726,17 +707,16 @@ function ListView({ data, lens, onSelect }: { data: ConstellationDTO; lens: Lens
           </h2>
           <ul className="flex flex-wrap gap-2">
             {g.people.map((p) => (
-              <li key={p.id}>
-                <button onClick={() => onSelect(p)} className="flex h-10 items-center gap-2 rounded-full border border-line-strong pl-1 pr-3 text-sm hover:bg-raised-2">
+              <li key={p.id} className="max-w-full">
+                <button onClick={() => onSelect(p)} className="flex h-11 max-w-full items-center gap-2 rounded-full border border-line-strong pl-1 pr-3 text-sm hover:bg-raised-2 sm:h-10">
                   <Avatar name={p.name} src={p.photoUrl} size={30} ring={p.isMe ? "brass" : p.open ? "aurora" : undefined} />
-                  {p.isMe ? "You" : p.name}
+                  <span className="truncate">{p.isMe ? "You" : p.name}</span>
                 </button>
               </li>
             ))}
           </ul>
         </section>
       ))}
-      {data.privateCount > 0 && <p className="text-sm text-faint">Plus {data.privateCount} classmates exploring privately.</p>}
     </div>
   );
 }
@@ -766,7 +746,7 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
             transition={{ type: "spring", stiffness: 320, damping: 34 }}
             className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-[28px] border border-line-strong bg-raised p-6 shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:right-0 sm:max-h-none sm:w-[400px] sm:rounded-none sm:rounded-l-[28px]"
           >
-            <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4 grid size-8 place-items-center rounded-full text-dim hover:bg-raised-2 hover:text-star">
+            <button onClick={onClose} aria-label="Close" className="absolute right-3 top-3 grid size-11 place-items-center rounded-full text-dim hover:bg-raised-2 hover:text-star">
               <X className="size-4" />
             </button>
             <Avatar name={person.name} src={person.photoUrl} size={72} ring={person.isMe ? "brass" : person.open ? "aurora" : undefined} />
@@ -774,7 +754,7 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
             {person.headline && <p className="mt-1 text-dim">{person.headline}</p>}
             {person.open && (
               <Tag tone="aurora" className="mt-3">
-                Open to collaborate
+                Open to volunteer
               </Tag>
             )}
 
@@ -799,9 +779,10 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
                 ))}
               </div>
             </div>
-            {person.preferredLocations.length > 0 && (
+            {(person.isTeam || person.batchLabel) && (
               <p className="mt-5 flex items-center gap-2 text-sm text-dim">
-                <MapPin className="size-4 text-faint" /> {person.preferredLocations.join(", ")}
+                {person.isTeam ? <Star className="size-4 text-brass" /> : <GraduationCap className="size-4 text-faint" />}
+                {person.isTeam ? person.teamTitle || "Comskills team" : person.batchLabel}
               </p>
             )}
 
@@ -815,6 +796,9 @@ function PersonDrawer({ person, me, onClose }: { person: Person | null; me: Pers
 
             {!person.isMe && (
               <div className="mt-8 flex flex-col gap-2">
+                <Link href={`/members/${person.id}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line-strong font-medium hover:bg-raised-2">
+                  <UserRound className="size-4" /> View profile
+                </Link>
                 <Link href={`/opportunities/new?tag=${person.id}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brass font-medium text-brass-ink">
                   <Send className="size-4" /> Send {firstName(person.name)} an opportunity
                 </Link>
