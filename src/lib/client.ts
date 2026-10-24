@@ -1,3 +1,5 @@
+import { daysUntil, formatDateOnly, localDayKey } from "./time";
+
 export class ClientError extends Error {
   constructor(public status: number, message: string, public data?: Record<string, unknown>) {
     super(message);
@@ -48,15 +50,18 @@ export function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+/** "12 Mar 2027" for a date-only value (YYYY-MM-DD). */
 export function formatDate(iso: string | null): string {
-  if (!iso) return "";
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  return formatDateOnly(iso);
 }
 
+/** Days from today (in the app time zone, Asia/Karachi by default) until a date-only value. */
 export function daysLeft(iso: string | null): number | null {
   if (!iso) return null;
-  const d = new Date(`${iso}T00:00:00Z`).getTime();
-  const now = new Date();
-  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((d - today) / 86400000);
+  return daysUntil(iso.slice(0, 10));
+}
+
+/** Today's date (app time zone) as YYYY-MM-DD, e.g. for date inputs. */
+export function todayKey(): string {
+  return localDayKey();
 }

@@ -6,7 +6,10 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Clock, HandHeart, Lock, Mail, MapPin, MessageCircle, Pencil, UserPlus, X } from "lucide-react";
-import type { MemberProfileDTO } from "@/lib/types";
+import type { MemberProfileDTO, ProposalCardDTO } from "@/lib/types";
+import type { ScholarshipDTO } from "@/lib/scholarships";
+import { ProfileScholarships } from "../scholarships/ScholarshipParts";
+import { StatusPill } from "../projects/ProposalCard";
 import { getField, lookingForLabel } from "@/lib/taxonomy";
 import { api, ClientError, firstName } from "@/lib/client";
 import { prettyPhone, waMeLink } from "@/lib/phone";
@@ -14,9 +17,11 @@ import { Avatar, Button, EmptyState, ErrorText, FieldChip, Label, LinkButton, Mo
 import { LinkPills } from "../ProfileParts";
 import { RoleBadge } from "./MembersView";
 
-export function MemberProfile({ id, extra }: { id: string; extra?: (p: MemberProfileDTO) => React.ReactNode }) {
+type FullProfile = MemberProfileDTO & { projects: (ProposalCardDTO & { role: "proposer" | "member" })[]; scholarships: ScholarshipDTO[] };
+
+export function MemberProfile({ id }: { id: string }) {
   const key = `/api/members/${id}`;
-  const { data: p, error, mutate } = useSWR<MemberProfileDTO>(key);
+  const { data: p, error, mutate } = useSWR<FullProfile>(key);
 
   if (error && !p) {
     const notFound = error instanceof ClientError && error.status === 404;
@@ -153,7 +158,31 @@ export function MemberProfile({ id, extra }: { id: string; extra?: (p: MemberPro
           )}
         </Panel>
 
-        {extra?.(p)}
+        <Panel as="section" className="p-5 sm:p-7">
+          <h2 className="font-display text-xl font-semibold">Projects</h2>
+          {p.projects.length === 0 ? (
+            <p className="mt-3 text-sm text-faint">Not in any project yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-2">
+              {p.projects.map((pr) => (
+                <li key={pr.id}>
+                  <Link href={`/projects/${pr.id}`} className="flex items-center gap-3 rounded-2xl border border-line bg-night-2/50 p-3 hover:border-line-strong">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{pr.title}</span>
+                      <span className="block text-xs text-faint">{pr.role === "proposer" ? "Proposed it" : "On the team"}</span>
+                    </span>
+                    <StatusPill status={pr.status} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel as="section" className="p-5 sm:p-7">
+          <h2 className="font-display text-xl font-semibold">Scholarships</h2>
+          <ProfileScholarships items={p.scholarships} />
+        </Panel>
 
         <p className="pb-4 text-center text-xs text-faint">
           Joined {new Date(p.joinedAt).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
