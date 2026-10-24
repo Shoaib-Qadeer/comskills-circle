@@ -28,7 +28,14 @@ function getClientPromise(): Promise<MongoClient> {
   if (!uri) throw new Error("MONGODB_URI is not set");
   if (!globalForMongo._mongoClientPromise) {
     const client = new MongoClient(uri, { maxPoolSize: 5, serverSelectionTimeoutMS: 8000 });
-    globalForMongo._mongoClientPromise = client.connect();
+    const p = client.connect();
+    globalForMongo._mongoClientPromise = p;
+    // A failed first connect (e.g. Atlas Network Access, a cold network) must not stick:
+    // forget it so the next request tries again. Once connected, the driver reconnects by itself.
+    p.catch(() => {
+      if (globalForMongo._mongoClientPromise === p) globalForMongo._mongoClientPromise = undefined;
+      client.close().catch(() => null);
+    });
   }
   return globalForMongo._mongoClientPromise;
 }

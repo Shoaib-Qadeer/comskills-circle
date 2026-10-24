@@ -141,7 +141,7 @@ export async function sendEmail(opts: {
       text: opts.message.text,
       html: opts.message.html,
       headers: opts.unsubscribeUrl
-        ? { "List-Unsubscribe": `<${opts.unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+        ? { "List-Unsubscribe": `<${opts.unsubscribeUrl.replace("/unsubscribe?", "/api/unsubscribe?")}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
         : undefined,
     });
     await log(opts.kind, userId, true, null);
