@@ -68,6 +68,7 @@ export const DEFAULT_PROMPTS: Record<PromptKey, string> = {
   extraction: EXTRACTION_SYSTEM,
   matchOpportunity: MATCH_ONE_OPP_SYSTEM,
   matchProfile: MATCH_ONE_PROFILE_SYSTEM,
+  matchProposal: MATCH_ONE_OPP_SYSTEM,
   profile: PROFILE_SYSTEM,
   coach: COACH_SYSTEM,
 };

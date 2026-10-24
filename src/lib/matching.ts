@@ -108,7 +108,7 @@ export async function matchOpportunity(opportunityId: ObjectId): Promise<number>
     const alias = new Map(eligible.map((u, i) => [`u${i + 1}`, u]));
     try {
       const out = await generateJSON({
-        feature: "matching",
+        feature: "matchOpportunity",
         label: "match-opportunity",
         system: await systemPrompt("matchOpportunity"),
         user: JSON.stringify({ opportunity: oppForLlm(opp), profiles: Array.from(alias, ([id, u]) => profileForLlm(u, id)) }),
@@ -180,7 +180,7 @@ export async function matchProfile(userId: ObjectId): Promise<number> {
         const alias = new Map(batch.map((o, i) => [`o${i + 1}`, o]));
         try {
           const out = await generateJSON({
-            feature: "matching",
+            feature: "matchOpportunity",
             label: "match-profile",
             system: await systemPrompt("matchProfile"),
             user: JSON.stringify({ profile, opportunities: Array.from(alias, ([id, o]) => oppForLlm(o, id)) }),

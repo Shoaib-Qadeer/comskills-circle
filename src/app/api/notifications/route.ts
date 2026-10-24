@@ -15,6 +15,6 @@ export const GET = route(async () => {
         $or: [{ deadline: null }, { deadline: { $gte: todayUtc } }],
       })
     : 0;
-  const pendingApprovals = user.isAdmin ? await users.countDocuments({ status: "pending" }) : 0;
+  const pendingApprovals = user.isAdmin ? await users.countDocuments({ status: "pending", emailVerifiedAt: { $ne: null } }) : 0;
   return json({ unseenMatches, pendingApprovals, total: unseenMatches + pendingApprovals });
 });

@@ -16,7 +16,7 @@ export const GET = route(async () => {
   const weekAgo = new Date(Date.now() - 7 * 86400_000);
   const [users, pending, onboarded, active7, open, archived, matches, usage, settings] = await Promise.all([
     c.users.countDocuments({}),
-    c.users.countDocuments({ status: "pending" }),
+    c.users.countDocuments({ status: "pending", emailVerifiedAt: { $ne: null } }),
     c.users.countDocuments({ onboarded: true, status: { $nin: ["pending", "rejected"] } }),
     c.users.countDocuments({ lastSeenAt: { $gte: weekAgo } }),
     c.opportunities.countDocuments({ $or: [{ deadline: null }, { deadline: { $gte: todayUtc } }] }),

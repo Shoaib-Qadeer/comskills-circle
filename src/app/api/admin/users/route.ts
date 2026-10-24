@@ -4,13 +4,14 @@ import { route, readJson, json } from "@/lib/api";
 import { collections, toObjectId } from "@/lib/db";
 import { deleteUserCascade } from "@/lib/users";
 import { matchProfile } from "@/lib/matching";
+import { sendApprovedEmail } from "@/lib/accounts";
 
 export const maxDuration = 60;
 
 export const GET = route(async () => {
   await requireAdmin();
   const { users, opportunities, matches } = await collections();
-  const all = await users.find({}).sort({ createdAt: -1 }).limit(1000).toArray();
+  const all = await users.find({ emailVerifiedAt: { $ne: null } }).sort({ createdAt: -1 }).limit(2000).toArray();
   const [posted, matched] = await Promise.all([
     opportunities.aggregate<{ _id: unknown; n: number }>([{ $group: { _id: "$postedBy", n: { $sum: 1 } } }]).toArray(),
     matches.aggregate<{ _id: unknown; n: number }>([{ $match: { dismissed: false } }, { $group: { _id: "$userId", n: { $sum: 1 } } }]).toArray(),
@@ -48,11 +49,13 @@ export const PATCH = route(async (req) => {
   const body = await readJson(req, patchSchema);
   const ids = body.ids.map(toObjectId).filter((x): x is NonNullable<typeof x> => Boolean(x));
   const { users } = await collections();
-  const targets = await users.find({ _id: { $in: ids } }, { projection: { email: 1, status: 1, onboarded: 1 } }).toArray();
+  const targets = await users.find({ _id: { $in: ids }, emailVerifiedAt: { $ne: null } }, { projection: { email: 1, status: 1, onboarded: 1, name: 1 } }).toArray();
   const changeable = targets.filter((u) => !isAdminEmail(u.email) && String(u._id) !== String(admin._id));
   await users.updateMany({ _id: { $in: changeable.map((u) => u._id) } }, { $set: { status: body.status, statusChangedAt: new Date() } });
   // Newly approved people who already filled in their profile get matched straight away
   if (body.status === "approved") {
+    const newlyApproved = changeable.filter((u) => u.status !== "approved");
+    await Promise.all(newlyApproved.map((u) => sendApprovedEmail(u).catch(() => null)));
     for (const u of changeable.filter((x) => x.onboarded)) await matchProfile(u._id).catch(() => null);
   }
   return json({ updated: changeable.length });

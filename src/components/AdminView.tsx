@@ -488,14 +488,11 @@ function parseEmails(text: string): { valid: string[]; invalid: string[] } {
 function AccessTab() {
   const { draft, setDraft, dirty, save, saving, reset } = useSettingsDraft();
   const [preText, setPreText] = useState<string | null>(null);
-  const [extraText, setExtraText] = useState<string | null>(null);
   useEffect(() => {
     if (draft && preText === null) setPreText(draft.access.preApprovedEmails.join("\n"));
-    if (draft && extraText === null) setExtraText(draft.access.extraAllowedEmails.join("\n"));
-  }, [draft, preText, extraText]);
-  if (!draft || preText === null || extraText === null) return <Skeleton className="h-80 rounded-[var(--radius-panel)]" />;
+  }, [draft, preText]);
+  if (!draft || preText === null) return <Skeleton className="h-80 rounded-[var(--radius-panel)]" />;
   const pre = parseEmails(preText);
-  const extra = parseEmails(extraText);
   const setAccess = (patch: Partial<AppSettings["access"]>) => setDraft({ ...draft, access: { ...draft.access, ...patch } });
 
   return (
@@ -525,26 +522,7 @@ function AccessTab() {
         />
         <ErrorText>{pre.invalid.length > 0 && `Not saved, doesn't look like an email: ${pre.invalid.slice(0, 3).join(", ")}`}</ErrorText>
       </Panel>
-      <Panel className="p-5 sm:p-6">
-        <Label htmlFor="extra" hint={`${extra.valid.length} emails`}>
-          Allow these emails from other domains
-        </Label>
-        <p className="mb-3 text-sm text-dim">
-          Normally only the domains in ALLOWED_EMAIL_DOMAIN can sign in. Add specific outside addresses here (for example a member's other university account). They still need approval unless pre-approved.
-        </p>
-        <Textarea
-          id="extra"
-          rows={4}
-          value={extraText}
-          onChange={(e) => {
-            setExtraText(e.target.value);
-            setAccess({ extraAllowedEmails: parseEmails(e.target.value).valid });
-          }}
-          placeholder="someone@u-paris.fr"
-        />
-        <ErrorText>{extra.invalid.length > 0 && `Not saved, doesn't look like an email: ${extra.invalid.slice(0, 3).join(", ")}`}</ErrorText>
-      </Panel>
-      <SaveBar dirty={dirty} saving={saving} onSave={save} onReset={() => { reset(); setPreText(null); setExtraText(null); }} />
+      <SaveBar dirty={dirty} saving={saving} onSave={save} onReset={() => { reset(); setPreText(null); }} />
     </div>
   );
 }
@@ -553,7 +531,8 @@ function AccessTab() {
 
 const FEATURE_LABELS: Record<keyof AppSettings["ai"]["features"], { label: string; description: string }> = {
   extraction: { label: "Read posted links", description: "Fills in title, deadline, duration and fields when someone shares a link." },
-  matching: { label: "Match opportunities to people", description: "Scores each opportunity for every member and writes the reason." },
+  matchOpportunity: { label: "Match opportunities to people", description: "Scores each shared opportunity for every member and writes the reason." },
+  matchProposal: { label: "Match projects to people", description: "Scores each project proposal for every member, and suggests people to invite." },
   profileSuggestions: { label: "Suggest profile fields", description: "Suggests fields while people write their direction." },
   coach: { label: "How to approach this", description: "Tailored advice on a match: what to highlight, gaps, a first step." },
 };
@@ -562,6 +541,7 @@ const PROMPT_LABELS: Record<PromptKey, string> = {
   extraction: "Reading links",
   matchOpportunity: "Matching a new opportunity",
   matchProfile: "Matching a new or edited profile",
+  matchProposal: "Matching a new project",
   profile: "Profile suggestions",
   coach: "How to approach this",
 };
@@ -650,7 +630,7 @@ function AiTab({ overview }: { overview?: Overview }) {
         <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <NumberField id="l-extract" label="Links read" value={draft.limits.extractPerDay} min={0} max={1000} onChange={(v) => setLimits({ extractPerDay: v })} />
           <NumberField id="l-post" label="Opportunities shared" value={draft.limits.postPerDay} min={0} max={1000} onChange={(v) => setLimits({ postPerDay: v })} />
-          <NumberField id="l-intro" label="Intro requests" value={draft.limits.introPerDay} min={0} max={1000} onChange={(v) => setLimits({ introPerDay: v })} />
+          <NumberField id="l-connect" label="Connect requests" value={draft.limits.connectPerDay} min={0} max={1000} onChange={(v) => setLimits({ connectPerDay: v })} />
           <NumberField id="l-coach" label="Approach advice" value={draft.limits.coachPerDay} min={0} max={1000} onChange={(v) => setLimits({ coachPerDay: v })} />
         </div>
       </Panel>

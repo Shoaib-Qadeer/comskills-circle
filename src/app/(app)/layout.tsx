@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/");
+  if (!user) redirect("/login");
   if (user.status !== "approved") redirect("/pending");
   if (!user.onboarded) redirect("/onboarding");
   return (

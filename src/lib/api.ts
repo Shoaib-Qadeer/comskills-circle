@@ -15,16 +15,21 @@ export function route<C>(fn: Handler<C>): Handler<C> {
       }
       if (err instanceof z.ZodError) {
         const first = err.issues[0];
-        const path = first?.path?.join(".");
-        return NextResponse.json(
-          { error: path ? `${path}: ${first.message}` : first?.message || "Invalid input" },
-          { status: 400 },
-        );
+        const field = first?.path?.join(".") || null;
+        // Messages we wrote are shown as they are; zod's generic ones get the field name for context.
+        const generic = !first?.message || /expected|invalid|too (small|big)/i.test(first.message);
+        const msg = first ? (generic && field ? `${humanField(field)}: ${first.message}` : first.message) : "Please check the form.";
+        return NextResponse.json({ error: msg, field }, { status: 400 });
       }
       console.error("[api] unhandled", err);
       return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
     }
   };
+}
+
+function humanField(path: string): string {
+  const last = path.split(".").filter((p) => !/^\d+$/.test(p)).pop() || path;
+  return last.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
 
 export async function readJson<T>(req: Request, schema: ZodType<T>): Promise<T> {

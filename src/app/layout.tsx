@@ -22,7 +22,7 @@ const themeScript = `try{var t=localStorage.getItem('circle-theme');document.doc
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning className={GeistSans.variable}>
+    <html lang="en" data-theme="dark" data-tz={process.env.APP_TIME_ZONE || "Asia/Karachi"} suppressHydrationWarning className={GeistSans.variable}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

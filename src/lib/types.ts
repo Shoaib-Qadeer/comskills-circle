@@ -7,9 +7,19 @@ export type OppType = "internship" | "fellowship" | "summer_school" | "competiti
 export type Links = { linkedin?: string; cv?: string; portfolio?: string; github?: string };
 export type AccessStatus = "pending" | "approved" | "rejected";
 
+export type Role = "participant" | "team";
+
 export interface UserDoc {
   _id: ObjectId;
   email: string;
+  passwordHash: string;
+  emailVerifiedAt: Date | null;
+  /** Bumped on password change/reset; sessions carrying an older version are rejected. */
+  sessionVersion: number;
+  role: Role;
+  teamTitle: string | null;
+  batch: string | null;
+  signupHint: { batch: string | null; saysTeam: boolean };
   name: string;
   photoUrl: string | null;
   onboarded: boolean;
@@ -97,8 +107,9 @@ export interface CoachAdvice {
 }
 
 export interface UsageDoc {
-  _id: string; // YYYY-MM-DD
+  _id: string; // YYYY-MM-DD in the app time zone
   llmCalls: number;
+  emailsSent?: number;
   inputTokens?: number;
   outputTokens?: number;
   errors?: number;
@@ -113,6 +124,34 @@ export interface LlmLogDoc {
   inputTokens: number;
   outputTokens: number;
   ms: number;
+  error: string | null;
+}
+
+export type CodePurpose = "verify" | "reset";
+
+export interface EmailCodeDoc {
+  _id: ObjectId;
+  email: string;
+  purpose: CodePurpose;
+  codeHash: string;
+  attempts: number;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+export interface OneTimeTokenDoc {
+  _id: string; // sha256 of the token
+  userId: ObjectId;
+  expiresAt: Date;
+}
+
+export interface EmailLogDoc {
+  _id?: ObjectId;
+  at: Date;
+  kind: string;
+  /** Recipient's user id when there is one; never the address. */
+  userId: ObjectId | null;
+  ok: boolean;
   error: string | null;
 }
 

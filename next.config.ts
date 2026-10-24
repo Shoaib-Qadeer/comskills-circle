@@ -1,11 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Don't write AGENTS.md into the project on `next dev`
+  agentRules: false,
   // linkedom / readability are server-only and should not be bundled for the client
   serverExternalPackages: ["linkedom", "@mozilla/readability"],
-  images: {
-    remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }],
-  },
   async headers() {
     return [
       {

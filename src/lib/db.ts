@@ -5,6 +5,10 @@ import type {
   MatchDoc,
   UsageDoc,
   RateDoc,
+  EmailCodeDoc,
+  OneTimeTokenDoc,
+  EmailLogDoc,
+  LlmLogDoc,
 } from "./types";
 
 // Cache the client across hot reloads and serverless invocations.
@@ -33,6 +37,10 @@ export async function collections() {
     matches: db.collection<MatchDoc>("matches"),
     usage: db.collection<UsageDoc>("usage"),
     rates: db.collection<RateDoc>("rates"),
+    emailCodes: db.collection<EmailCodeDoc>("emailCodes"),
+    oneTimeTokens: db.collection<OneTimeTokenDoc>("oneTimeTokens"),
+    emailLog: db.collection<EmailLogDoc>("emailLog"),
+    llmLog: db.collection<LlmLogDoc>("llmLog"),
   };
 }
 
@@ -48,8 +56,12 @@ export async function ensureIndexes() {
     c.matches.createIndex({ userId: 1, opportunityId: 1 }, { unique: true }),
     c.matches.createIndex({ opportunityId: 1 }),
     c.rates.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-    c.users.db.collection("llmLog").createIndex({ at: 1 }, { expireAfterSeconds: 14 * 24 * 3600 }),
+    c.llmLog.createIndex({ at: 1 }, { expireAfterSeconds: 14 * 24 * 3600 }),
     c.users.createIndex({ status: 1 }),
+    c.emailCodes.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    c.emailCodes.createIndex({ email: 1, purpose: 1 }),
+    c.oneTimeTokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    c.emailLog.createIndex({ at: 1 }, { expireAfterSeconds: 30 * 24 * 3600 }),
   ]);
   indexesEnsured = true;
 }
